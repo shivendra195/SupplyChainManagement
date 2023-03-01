@@ -1,24 +1,29 @@
 package database
 
 import (
-	"database/sql"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
+
+	// source/file import is required for migration files to read
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+
+	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
 
 	//"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 
-func Migrations(db *sql.DB) {
-
-	driver, err := postgres.WithInstance(db, &postgres.Config{})
+func Migrations(db *sqlx.DB) {
+	driver, err := postgres.WithInstance(db.DB, &postgres.Config{})
 	if err != nil {
-		logrus.Fatalf("Failed to postgres.WithInstance : %v", err)
+		logrus.Fatalf("Migrations : Failed to postgres.WithInstance : %v", err)
 	}
-	m, err := migrate.NewWithDatabaseInstance(
-		"file:///migrations",
-		"postgres", driver)
-	m.Up() // or m.Step(2) if you want to explicitly set the number of migrations to run
-
+	m, err := migrate.NewWithDatabaseInstance("file://database", "postgres", driver)
+	if err != nil {
+		logrus.Fatalf("Migrations : Failed to postgres.NewWithDatabaseInstance : %v", err)
+	}
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		logrus.Fatalf("Migrations : Failed to up and down migrations  : %v", err)
+	}
 }

@@ -11,10 +11,12 @@ const (
 
 	Dealer   UserRoles = "dealer"
 	Retailer UserRoles = "retailer"
-	Admin    UserRoles = "adminprovider"
+	Admin    UserRoles = "admin"
 
 	Male   GenderType = "male"
 	Female GenderType = "female"
 	Other  GenderType = "other"
 	None   GenderType = "none"
+
+	MinAgeLimit = 18
 )
