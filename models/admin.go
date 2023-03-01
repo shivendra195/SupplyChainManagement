@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"github.com/volatiletech/null"
+	"time"
+)
 
 type CreateUserParams struct {
 	Name        string    `json:"name" db:"name"`
@@ -12,4 +15,11 @@ type CreateUserParams struct {
 	Phone       string    `json:"phone" db:"phone"`
 	CreatedAt   time.Time `json:"createdAt" db:"created_at"`
 	UpdatedAt   time.Time `json:"updatedAt" db:"updated_at"`
+}
+
+type CreateSessionRequest struct {
+	Platform  string      `json:"platform"`
+	ModelName null.String `json:"modelName"`
+	OSVersion null.String `json:"osVersion"`
+	DeviceID  null.String `json:"deviceId"`
 }

@@ -2,6 +2,7 @@ package dbhelperprovider
 
 import (
 	"database/sql"
+	"errors"
 	"github.com/jmoiron/sqlx"
 	"github.com/shivendra195/supplyChainManagement/crypto"
 	"github.com/shivendra195/supplyChainManagement/dbutil"
@@ -125,4 +126,84 @@ func (dh *DBHelper) FetchUserData(userID int) (models.FetchUserData, error) {
 
 	return fetchUserData, nil
 
+}
+
+func (dh *DBHelper) LogInUserUsingEmailAndRole(loginReq models.EmailAndPassword, role models.UserRoles) (userID int, message string, err error) {
+	// language=SQL
+	SQL := `
+		SELECT id,   
+			COALESCE(password, '') as password
+		FROM
+			users
+		WHERE
+			email = $1
+			AND archived_at IS NULL 
+	`
+
+	var user = struct {
+		ID             int    `db:"id"`
+		HashedPassword string `db:"password"`
+	}{}
+
+	if err = dh.DB.Get(&user, SQL, loginReq.Email); err != nil && err != sql.ErrNoRows {
+		logrus.Errorf("LogInUserUsingEmailAndRole: error while getting user %v", err)
+		return userID, "error getting user", err
+	}
+
+	isPasswordMatched := crypto.ComparePasswords(user.HashedPassword, loginReq.Password)
+
+	if !isPasswordMatched {
+		return userID, "Password Not Correct", models.ErrorPasswordNotMatched
+	}
+
+	var userRole models.UserRoles
+	SQL = `
+		SELECT
+			role
+		FROM user_roles
+		WHERE user_id = $1
+		  	  AND role = $2
+			  AND archived_at IS NULL
+	`
+
+	err = dh.DB.Get(&userRole, SQL, user.ID, role)
+	if err != nil && err != sql.ErrNoRows {
+		logrus.Errorf("LogInUserUsingEmailAndRole: error while getting user role:  %v", err)
+		return userID, "error getting user role", err
+	}
+	if err == sql.ErrNoRows {
+		return userID, "user role not matched", errors.New("user does not have required access")
+	}
+
+	return user.ID, "", nil
+}
+
+func (dh *DBHelper) StartNewSession(userID int, request *models.CreateSessionRequest) (string, error) {
+
+	// language=sql
+	SQL := `INSERT INTO sessions 
+			(user_id, start_time, platform, model_name, os_version, device_id) 
+			VALUES ($1, $2, $3, $4, $5, $6)	RETURNING token, id`
+
+	args := []interface{}{
+		userID,
+		time.Now(),
+		request.Platform,
+		request.ModelName,
+		request.OSVersion,
+		request.DeviceID,
+	}
+
+	type sessionDetails struct {
+		Token     string `db:"token"`
+		SessionID int64  `db:"id"`
+	}
+	var session sessionDetails
+	err := dh.DB.Get(&session, SQL, args...)
+	if err != nil {
+		logrus.Errorf("StartNewSession: error while starting new session: %v\n", err)
+		return session.Token, err
+	}
+
+	return session.Token, nil
 }

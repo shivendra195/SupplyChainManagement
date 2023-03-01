@@ -27,6 +27,7 @@ type Server struct {
 	//AdminQueries *admin.Queries
 	//PSQLC        providers.PSQLCProvider
 	//PSQLC     	providers.PSQLProvider
+	//MiddleProvider providers.
 	DBHelper   providers.DBHelperProvider
 	PSQL       providers.PSQLProvider
 	httpServer *http.Server

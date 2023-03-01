@@ -1,0 +1,5 @@
+package middlewareprovider
+
+func NewMiddleware() {
+
+}

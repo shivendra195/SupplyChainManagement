@@ -44,7 +44,7 @@ func (srv *Server) register(resp http.ResponseWriter, req *http.Request) {
 	}
 
 	if isUserExist {
-		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "this email is already linked with one of our account please use a different email address", "unable to create a user with duplicate email address")
+		scmerrors.RespondClientErr(resp, errors.New("error creating user"), http.StatusBadRequest, "this email is already linked with one of our account please use a different email address", "unable to create a user with duplicate email address")
 		return
 	}
 
@@ -155,5 +155,62 @@ func (srv *Server) fetchUser(resp http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.EncodeJSON200Body(resp, fetchedAuthor)
+}
+
+func (srv *Server) loginWithEmailPassword(resp http.ResponseWriter, req *http.Request) {
+	var token string
+	var authLoginRequest models.AuthLoginRequest
+
+	if authLoginRequest.Password == "" {
+		scmerrors.RespondClientErr(resp, errors.New("password can not be empty"), http.StatusBadRequest, "Empty password!", "password field can not be empty")
+		return
+	}
+
+	if authLoginRequest.Email == "" {
+		scmerrors.RespondClientErr(resp, errors.New("email can not be empty"), http.StatusBadRequest, "Please enter email to login", "email can not be empty")
+		return
+	}
+
+	loginReq := models.EmailAndPassword{
+		Email:    authLoginRequest.Email,
+		Password: authLoginRequest.Password,
+	}
+	loginReq.Email = strings.ToLower(loginReq.Email)
+	userID, errorMessage, err := srv.DBHelper.LogInUserUsingEmailAndRole(loginReq, models.Admin)
+	if err != nil {
+		scmerrors.RespondClientErr(resp, err, http.StatusInternalServerError, errorMessage, errorMessage)
+		return
+	}
+
+	createUserSession := models.CreateSessionRequest{
+		Platform:  authLoginRequest.Platform,
+		ModelName: authLoginRequest.ModelName,
+		OSVersion: authLoginRequest.OSVersion,
+		DeviceID:  authLoginRequest.DeviceID,
+	}
+
+	newSessionToken, err := srv.DBHelper.StartNewSession(userID, &createUserSession)
+	if err != nil {
+		scmerrors.RespondGenericServerErr(resp, err, "error in creating session")
+		return
+	}
+
+	userInfo, err := srv.DBHelper.FetchUserData(userID)
+	if err != nil {
+		scmerrors.RespondGenericServerErr(resp, err, "error in getting user info")
+		return
+	}
+
+	devClaims := make(map[string]interface{})
+	devClaims["token"] = newSessionToken
+	devClaims["userInfo"] = userInfo
+
+	token, err = srv.MiddleProvider.CustomTokenAuthWithClaims(devClaims)
+	if err != nil {
+		scmerrors.RespondClientErr(resp, err, http.StatusInternalServerError, "error while login", "error while login")
+		return
+	}
+
+	utils.EncodeJSONBody(resp, http.StatusOK, map[string]interface{}{})
 
 }

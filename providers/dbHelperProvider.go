@@ -7,4 +7,6 @@ type DBHelperProvider interface {
 	IsUserAlreadyExists(emailID string) (isUserExist bool, user models.UserData, err error)
 	IsPhoneNumberAlreadyExist(phone string) (bool, error)
 	FetchUserData(userID int) (models.FetchUserData, error)
+	LogInUserUsingEmailAndRole(loginReq models.EmailAndPassword, role models.UserRoles) (userID int, message string, err error)
+	StartNewSession(userID int, request *models.CreateSessionRequest) (string, error)
 }

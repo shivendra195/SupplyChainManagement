@@ -1,10 +1,13 @@
 package models
 
 import (
+	"errors"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/volatiletech/null"
 	"time"
 )
+
+var ErrorPasswordNotMatched = errors.New("password not matched")
 
 type CreateNewUserRequest struct {
 	Name        string              `json:"name"  db:"name"`
@@ -22,6 +25,21 @@ type CreateNewUserRequest struct {
 
 type UserData struct {
 	UserID int `json:"userId" db:"id"`
+}
+
+type AuthLoginRequest struct {
+	Platform  string      `json:"platform"`
+	ModelName null.String `json:"modelName"`
+	OSVersion null.String `json:"osVersion"`
+	DeviceID  null.String `json:"deviceId"`
+	Token     string      `json:"token"`
+	Email     string      `json:"email"`
+	Password  string      `json:"password"`
+}
+
+type EmailAndPassword struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 type FetchUserData struct {
