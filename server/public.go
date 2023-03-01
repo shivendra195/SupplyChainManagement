@@ -2,128 +2,158 @@ package server
 
 import (
 	"encoding/json"
-	"example.com/supplyChainManagement/models"
-	"example.com/supplyChainManagement/providers/dbhelpers/adminprovider/admin"
-	"example.com/supplyChainManagement/scmerrors"
-	"fmt"
+	"github.com/shivendra195/supplyChainManagement/crypto"
+	"github.com/shivendra195/supplyChainManagement/models"
+	"github.com/shivendra195/supplyChainManagement/scmerrors"
 	"github.com/sirupsen/logrus"
-	"log"
+	"github.com/volatiletech/null"
+	//"log"
+	"errors"
+	"github.com/ttacon/libphonenumber"
 	"net/http"
+	"strings"
 	"time"
 
-	"example.com/supplyChainManagement/utils"
+	"github.com/shivendra195/supplyChainManagement/utils"
 )
 
-type Response struct {
-	Persons []Person `json:"persons"`
-}
+func (srv *Server) register(resp http.ResponseWriter, req *http.Request) {
+	var newUserReq models.CreateNewUserRequest
 
-type Person struct {
-	Id        int    `json:"id"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-}
-
-func (srv *Server) createNewUser(resp http.ResponseWriter, req *http.Request) {
-	//var newUserReq models.CreateNewUserRequest
-	var data Person
-	err := json.NewDecoder(req.Body).Decode(&data)
+	err := json.NewDecoder(req.Body).Decode(&newUserReq)
 	if err != nil {
-		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest)
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "error creating user", "Error parsing request")
 		return
 	}
-	utils.EncodeJSONBody(resp, http.StatusCreated, data)
-}
 
-func (srv *Server) login(resp http.ResponseWriter, req *http.Request) {
-
-}
-
-func (srv *Server) home(resp http.ResponseWriter, req *http.Request) {
-	//vars := mux.Vars(req)
-	//title := "title"
-	//page := "page"
-	type Bio struct {
-		Name string `json:"name"`
-		Age  int    `json:"age"`
+	if newUserReq.Email.String == "" {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "Email  cannot be empty", "Email cannot be empty")
+		return
 	}
-	var bio Bio
-	err := json.NewDecoder(req.Body).Decode(&bio)
+
+	name := strings.TrimSpace(newUserReq.Name)
+	if name == "" {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "Name cannot be empty", "Name cannot be empty")
+		return
+	}
+	// checking if the user is already exist
+	isUserExist, _, err := srv.DBHelper.IsUserAlreadyExists(newUserReq.Email.String)
 	if err != nil {
-		log.Fatalln("There was an error decoding the request body into the struct")
+		scmerrors.RespondGenericServerErr(resp, err, "error in processing request")
+		return
 	}
 
-	bio.Age = 26
-	bio.Name = "shiv"
+	if isUserExist {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "this email is already linked with one of our account please use a different email address", "unable to create a user with duplicate email address")
+		return
+	}
 
-	//fmt.Fprintf(resp, "You've requested the book: %s on page %s\n", title, page)
-	//data := fmt.Sprintf("You've requested the book: %s on page %s\n", title, page)
-	//resp.Write([]byte("hi there "))
-	//fmt.Fprintf(w, string("response added again "))
+	newUserReq.Email.String = strings.ToLower(newUserReq.Email.String)
+	if newUserReq.Name == "" {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "name cannot be empty", "name cannot be empty")
+		return
+	}
 
-	utils.EncodeJSONBody(resp, http.StatusOK, map[string]interface{}{
-		"data": bio,
-	})
-}
+	if newUserReq.Phone.String == "" {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "Phone number cannot be empty", "Phone number cannot be empty")
+		return
+	}
 
-func (srv *Server) HealthCheck(resp http.ResponseWriter, r *http.Request) {
-	//specify status code
-	resp.WriteHeader(http.StatusOK)
+	if newUserReq.Password == "" {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "password cannot be empty", "password cannot be empty")
+		return
+	}
 
-	//update response writer
-	fmt.Fprintf(resp, "API is up and running")
+	if newUserReq.Gender == "" {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "gender cannot be empty", "gender cannot be empty")
+		return
+	}
 
-	utils.EncodeJSONBody(resp, http.StatusOK, map[string]interface{}{
-		"data": "health is good !",
-	})
-}
+	if newUserReq.DateOfBirth.String == "" {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "Date of birth cannot be empty", "Date of birth cannot be empty")
+		return
+	}
 
-func (srv *Server) CreateUser(resp http.ResponseWriter, r *http.Request) {
-	//ctx := context.Background()
-	var newUserJson models.CreateUserParams
-	var newUser admin.CreateUserParams
-
-	err := json.NewDecoder(r.Body).Decode(&newUserJson)
+	dateOfBirth, err := time.Parse("2006-01-02", newUserReq.DateOfBirth.String)
 	if err != nil {
-		logrus.Error("NewFunction : unable to decode request body ", err)
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "invalid date of birth", "error in parsing date of birth")
+		return
 	}
-	newUser.Name = newUserJson.Name
-	newUser.Age = newUserJson.Age
-	newUser.Password = newUserJson.Password
-	newUser.Address = newUserJson.Address
-	newUser.CountryCode = newUserJson.CountryCode
-	newUser.Phone = newUserJson.Phone
-	newUser.Email = newUserJson.Email
 
-	newUser.CreatedAt = time.Now()
-	newUser.UpdatedAt = time.Now()
+	age := time.Now().Year() - dateOfBirth.Year()
 
-	// create an author
-	//insertedAuthor, err := srv.AdminQueries.CreateUser(ctx, newUser)
-	//if err != nil {
-	//	logrus.Error("error creating user in database", err)
-	//}
+	if age < models.MinAgeLimit {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "user should be at least 18 years old", "error in parsing date of birth")
+		return
+	}
+
+	uncleanPhoneNumber := newUserReq.Phone.String
+
+	if strings.Count(uncleanPhoneNumber, "+") == 2 {
+		uncleanPhoneNumber = uncleanPhoneNumber[strings.LastIndex(uncleanPhoneNumber, "+"):]
+	}
+
+	phone := strings.ReplaceAll(uncleanPhoneNumber, " ", "")
+
+	num, err := libphonenumber.Parse(phone, "US")
+	if err != nil {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "Phone Number not in a correct format", "invalid format for phone number")
+		return
+	}
+
+	isValidNumber := libphonenumber.IsValidNumber(num)
+
+	if !isValidNumber {
+		scmerrors.RespondClientErr(resp, errors.New("invalid phone number"), http.StatusBadRequest, "invalid phone number", "invalid phone number")
+		return
+	}
+
+	phoneNumber := libphonenumber.Format(num, libphonenumber.E164)
+	newUserReq.Phone = null.StringFrom(phoneNumber)
+
+	if !crypto.IsGoodPassword(newUserReq.Password) {
+		scmerrors.RespondClientErr(resp, errors.New("password length should be at least 6"), http.StatusBadRequest, "password length should be at least 6", "password length should be at least 6")
+		return
+	}
+
+	isMobileAlreadyExist, err := srv.DBHelper.IsPhoneNumberAlreadyExist(phoneNumber)
+	if err != nil {
+		scmerrors.RespondGenericServerErr(resp, err, "unable to create user")
+		return
+	}
+
+	if isMobileAlreadyExist {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "this phone number is already linked with one of our account please use a different phone number", "unable to create a user")
+		return
+	}
+
+	// Creating user in the database
+	userID, err := srv.DBHelper.CreateNewUser(&newUserReq)
+	if err != nil {
+		scmerrors.RespondClientErr(resp, err, http.StatusInternalServerError, "Error registering new user aaaaaaaaaaa", "")
+		return
+	}
 
 	utils.EncodeJSONBody(resp, http.StatusCreated, map[string]interface{}{
 		"message": "success",
-		//"data":    insertedAuthor,
+		"userId":  userID,
 	})
 }
 
-func (srv *Server) FetchAllUser(resp http.ResponseWriter, r *http.Request) {
+func (srv *Server) fetchUser(resp http.ResponseWriter, r *http.Request) {
 	//ctx := context.Background()
-	var newUser admin.CreateUserParams
+	var userData models.UserData
 
-	err := json.NewDecoder(r.Body).Decode(&newUser)
+	err := json.NewDecoder(r.Body).Decode(&userData)
 	if err != nil {
 		logrus.Error("NewFunction : unable to decode request body ", err)
 	}
 
-	//fetchedAuthor, err := srv.AdminQueries.ListUsers(ctx)
-	//if err != nil {
-	//	logrus.Error("error creating user in database", err)
-	//}
-	//
-	//utils.EncodeJSON200Body(resp, fetchedAuthor)
+	fetchedAuthor, err := srv.DBHelper.FetchUserData(userData.UserID)
+	if err != nil {
+		logrus.Error("error creating user in database", err)
+	}
+
+	utils.EncodeJSON200Body(resp, fetchedAuthor)
 
 }

@@ -1,8 +1,8 @@
 package dbhelperprovider
 
 import (
-	"example.com/supplyChainManagement/providers"
 	"github.com/jmoiron/sqlx"
+	"github.com/shivendra195/supplyChainManagement/providers"
 )
 
 type DBHelper struct {

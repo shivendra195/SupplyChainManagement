@@ -9,15 +9,18 @@ import (
 
 type clientError struct {
 	Err           string `json:"error"`
+	MessageToUser string `json:"messageToUser"`
+	DeveloperInfo string `json:"developerInfo"`
 	StatusCode    int    `json:"statusCode"`
 	IsClientError bool   `json:"isClientError"`
 } // @name clientError
 
-func RespondClientErr(resp http.ResponseWriter, err error, statusCode int) {
+func RespondClientErr(resp http.ResponseWriter, err error, statusCode int, messageToUser, developerInfo string) {
 	resp.WriteHeader(statusCode)
 
 	clientErr := &clientError{
-
+		MessageToUser: messageToUser,
+		DeveloperInfo: developerInfo,
 		Err:           err.Error(),
 		StatusCode:    statusCode,
 		IsClientError: true,
@@ -28,10 +31,10 @@ func RespondClientErr(resp http.ResponseWriter, err error, statusCode int) {
 	}
 }
 
-func RespondGenericServerErr(resp http.ResponseWriter, err error) {
+func RespondGenericServerErr(resp http.ResponseWriter, err error, developerInfo string) {
 	resp.WriteHeader(http.StatusInternalServerError)
 	clintErr := &clientError{
-
+		DeveloperInfo: developerInfo,
 		Err:           err.Error(),
 		StatusCode:    http.StatusInternalServerError,
 		IsClientError: false,

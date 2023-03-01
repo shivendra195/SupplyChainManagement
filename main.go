@@ -5,7 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"example.com/supplyChainManagement/server"
+	"github.com/shivendra195/supplyChainManagement/server"
 
 	"github.com/sirupsen/logrus"
 )

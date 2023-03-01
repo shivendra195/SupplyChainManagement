@@ -2,7 +2,7 @@ package dbprovider
 
 import (
 	"database/sql"
-	"example.com/supplyChainManagement/providers"
+	"github.com/shivendra195/supplyChainManagement/providers"
 	"github.com/sirupsen/logrus"
 	"time"
 

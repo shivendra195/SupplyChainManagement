@@ -1,10 +1,11 @@
 package dbprovider
 
 import (
+	"github.com/shivendra195/supplyChainManagement/database"
 	"time"
 
-	"example.com/supplyChainManagement/providers"
 	"github.com/jmoiron/sqlx"
+	"github.com/shivendra195/supplyChainManagement/providers"
 	"github.com/sirupsen/logrus"
 )
 
@@ -33,6 +34,7 @@ func NewPSQLProvider(connectionString string) providers.DBProvider {
 		logrus.Fatalf("Failed to initialize PSQL: %v", err)
 	} else {
 		logrus.Info("connected to postgresql database")
+		database.Migrations(db)
 	}
 
 	return &psqlProvider{

@@ -2,14 +2,14 @@ package server
 
 import (
 	"context"
-	"example.com/supplyChainManagement/providers/dbhelperprovider"
-	"example.com/supplyChainManagement/providers/dbprovider"
+	"github.com/shivendra195/supplyChainManagement/providers/dbhelperprovider"
+	"github.com/shivendra195/supplyChainManagement/providers/dbprovider"
 	"net/http"
 	"os"
 
 	"time"
 
-	"example.com/supplyChainManagement/providers"
+	"github.com/shivendra195/supplyChainManagement/providers"
 	// "example.com/supplyChainManagement/providers/dbhelperprovider"
 	//"example.com/supplyChainManagement/providers/dbprovider"
 	_ "github.com/lib/pq"
@@ -20,7 +20,7 @@ const (
 
 	// jdbc:postgresql://localhost:5432/scmdb
 	defaultPSQLURL    = "jdbc:postgresql://localhost:5432/scmdb"
-	defaultPortNumber = "8081"
+	defaultPortNumber = "8080"
 )
 
 type Server struct {
@@ -34,9 +34,6 @@ type Server struct {
 
 func SrvInit() *Server {
 
-	//PSQL connection
-	db := dbprovider.NewPSQLProvider(os.Getenv("PSQL_DB_URL"))
-
 	// connection to database
 	//PSQLC := dbprovider.NewSQLCProvider(os.Getenv("PSQL_DB_URL"))
 
@@ -44,8 +41,10 @@ func SrvInit() *Server {
 	//AdminQueries := admin.New(PSQLC.DB())
 	//dbQuries  := newdbprovider.QueriesProviders(dbsqlc)
 
-	//database.Migrations(db.DB())
+	//PSQL connection
+	db := dbprovider.NewPSQLProvider(os.Getenv("PSQL_DB_URL"))
 
+	// database helper functions
 	dbHelper := dbhelperprovider.NewDBHepler(db.DB())
 
 	return &Server{
