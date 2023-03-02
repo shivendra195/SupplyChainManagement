@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/shivendra195/supplyChainManagement/providers/dbhelperprovider"
 	"github.com/shivendra195/supplyChainManagement/providers/dbprovider"
+	"github.com/shivendra195/supplyChainManagement/providers/middlewareprovider"
 	"net/http"
 	"os"
 
@@ -27,9 +28,12 @@ type Server struct {
 	//AdminQueries *admin.Queries
 	//PSQLC        providers.PSQLCProvider
 	//PSQLC     	providers.PSQLProvider
-	DBHelper   providers.DBHelperProvider
-	PSQL       providers.PSQLProvider
-	httpServer *http.Server
+	//MiddleProvider providers.
+	//AuthProvider providers.AuthProvider
+	MiddlewareProvider providers.MiddlewareProvider
+	DBHelper           providers.DBHelperProvider
+	PSQL               providers.PSQLProvider
+	httpServer         *http.Server
 }
 
 func SrvInit() *Server {
@@ -47,12 +51,12 @@ func SrvInit() *Server {
 	// database helper functions
 	dbHelper := dbhelperprovider.NewDBHepler(db.DB())
 
+	middleware := middlewareprovider.NewMiddleware(dbHelper)
+
 	return &Server{
-		PSQL:     db,
-		DBHelper: dbHelper,
-		//PSQLC:        PSQLC,
-		//AdminQueries: AdminQueries,
-		//Queries: dbQuries,
+		PSQL:               db,
+		DBHelper:           dbHelper,
+		MiddlewareProvider: middleware,
 	}
 }
 

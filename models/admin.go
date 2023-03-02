@@ -1,6 +1,8 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 type CreateUserParams struct {
 	Name        string    `json:"name" db:"name"`
@@ -12,4 +14,11 @@ type CreateUserParams struct {
 	Phone       string    `json:"phone" db:"phone"`
 	CreatedAt   time.Time `json:"createdAt" db:"created_at"`
 	UpdatedAt   time.Time `json:"updatedAt" db:"updated_at"`
+}
+
+type CreateSessionRequest struct {
+	Platform  string `json:"platform"`
+	ModelName string `json:"modelName"`
+	OSVersion string `json:"osVersion"`
+	DeviceID  string `json:"deviceId"`
 }
