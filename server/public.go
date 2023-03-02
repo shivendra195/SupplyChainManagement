@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/shivendra195/supplyChainManagement/crypto"
 	"github.com/shivendra195/supplyChainManagement/models"
+	"github.com/shivendra195/supplyChainManagement/providers/authProvider"
 	"github.com/shivendra195/supplyChainManagement/scmerrors"
 	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/null"
@@ -95,7 +96,7 @@ func (srv *Server) register(resp http.ResponseWriter, req *http.Request) {
 
 	phone := strings.ReplaceAll(uncleanPhoneNumber, " ", "")
 
-	num, err := libphonenumber.Parse(phone, "US")
+	num, err := libphonenumber.Parse(phone, "IN")
 	if err != nil {
 		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "Phone Number not in a correct format", "invalid format for phone number")
 		return
@@ -141,25 +142,21 @@ func (srv *Server) register(resp http.ResponseWriter, req *http.Request) {
 }
 
 func (srv *Server) fetchUser(resp http.ResponseWriter, r *http.Request) {
-	//ctx := context.Background()
-	var userData models.UserData
-
-	err := json.NewDecoder(r.Body).Decode(&userData)
-	if err != nil {
-		logrus.Error("NewFunction : unable to decode request body ", err)
-	}
-
-	fetchedAuthor, err := srv.DBHelper.FetchUserData(userData.UserID)
+	uc := srv.MiddlewareProvider.UserFromContext(r.Context())
+	fetchedAuthor, err := srv.DBHelper.FetchUserData(uc.UserID)
 	if err != nil {
 		logrus.Error("error creating user in database", err)
 	}
-
 	utils.EncodeJSON200Body(resp, fetchedAuthor)
 }
 
 func (srv *Server) loginWithEmailPassword(resp http.ResponseWriter, req *http.Request) {
 	var token string
 	var authLoginRequest models.AuthLoginRequest
+	err := json.NewDecoder(req.Body).Decode(&authLoginRequest)
+	if err != nil {
+		logrus.Error("NewFunction : unable to decode request body ", err)
+	}
 
 	if authLoginRequest.Password == "" {
 		scmerrors.RespondClientErr(resp, errors.New("password can not be empty"), http.StatusBadRequest, "Empty password!", "password field can not be empty")
@@ -184,12 +181,12 @@ func (srv *Server) loginWithEmailPassword(resp http.ResponseWriter, req *http.Re
 
 	createUserSession := models.CreateSessionRequest{
 		Platform:  authLoginRequest.Platform,
-		ModelName: authLoginRequest.ModelName,
-		OSVersion: authLoginRequest.OSVersion,
-		DeviceID:  authLoginRequest.DeviceID,
+		ModelName: authLoginRequest.ModelName.String,
+		OSVersion: authLoginRequest.OSVersion.String,
+		DeviceID:  authLoginRequest.DeviceID.String,
 	}
 
-	newSessionToken, err := srv.DBHelper.StartNewSession(userID, &createUserSession)
+	UUIDToken, err := srv.DBHelper.StartNewSession(userID, &createUserSession)
 	if err != nil {
 		scmerrors.RespondGenericServerErr(resp, err, "error in creating session")
 		return
@@ -202,15 +199,39 @@ func (srv *Server) loginWithEmailPassword(resp http.ResponseWriter, req *http.Re
 	}
 
 	devClaims := make(map[string]interface{})
-	devClaims["token"] = newSessionToken
+	devClaims["UUIDToken"] = UUIDToken
 	devClaims["userInfo"] = userInfo
+	devClaims["UserSession"] = createUserSession
 
-	token, err = srv.MiddleProvider.CustomTokenAuthWithClaims(devClaims)
+	//token, err = authProvider.GenerateJWT(devClaims)
+	//if err != nil {
+	//	scmerrors.RespondClientErr(resp, err, http.StatusInternalServerError, "error while login", "error while login")
+	//	return
+	//}
+
+	token, err = authProvider.GenerateJWT(map[string]interface{}{
+		"userInfo":    userInfo,
+		"UUIDToken":   UUIDToken,
+		"UserSession": createUserSession,
+	})
 	if err != nil {
 		scmerrors.RespondClientErr(resp, err, http.StatusInternalServerError, "error while login", "error while login")
 		return
 	}
 
-	utils.EncodeJSONBody(resp, http.StatusOK, map[string]interface{}{})
+	utils.EncodeJSONBody(resp, http.StatusOK, map[string]interface{}{
+		"userInfo": userInfo,
+		"token":    token,
+	})
+}
 
+func (srv *Server) logout(resp http.ResponseWriter, r *http.Request) {
+	uc := srv.MiddlewareProvider.UserFromContext(r.Context())
+	err := srv.DBHelper.EndSession(uc.SessionID)
+	if err != nil {
+		logrus.Error("error creating user in database", err)
+	}
+	utils.EncodeJSON200Body(resp, map[string]interface{}{
+		"message": "successfully logout",
+	})
 }

@@ -1,7 +1,6 @@
 package models
 
 import (
-	"github.com/volatiletech/null"
 	"time"
 )
 
@@ -18,8 +17,8 @@ type CreateUserParams struct {
 }
 
 type CreateSessionRequest struct {
-	Platform  string      `json:"platform"`
-	ModelName null.String `json:"modelName"`
-	OSVersion null.String `json:"osVersion"`
-	DeviceID  null.String `json:"deviceId"`
+	Platform  string `json:"platform"`
+	ModelName string `json:"modelName"`
+	OSVersion string `json:"osVersion"`
+	DeviceID  string `json:"deviceId"`
 }

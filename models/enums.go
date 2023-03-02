@@ -6,7 +6,11 @@ type UserRoles string
 
 type ENV string
 
+type JWT string
+
 const (
+	JWTSecretKey JWT = ""
+
 	PSQLDBURL ENV = "PSQL_DB_URL"
 
 	Dealer   UserRoles = "dealer"

@@ -1,8 +1,11 @@
 package providers
 
 import (
+	"context"
 	"database/sql"
 	"github.com/jmoiron/sqlx"
+	"github.com/shivendra195/supplyChainManagement/models"
+	"net/http"
 )
 
 // PSQLProvider provides the database client from the Database after connecting to database.
@@ -27,4 +30,13 @@ type NewDBProvider interface {
 	// Ping verifies the connection with the database.
 	Ping() error
 	PSQLCProvider
+}
+
+type AuthProvider interface {
+	generateJWT(userToken string) (string, error)
+}
+
+type MiddlewareProvider interface {
+	Middleware() func(next http.Handler) http.Handler
+	UserFromContext(ctx context.Context) models.UserContextData
 }
