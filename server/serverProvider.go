@@ -2,17 +2,17 @@ package server
 
 import (
 	"context"
+	"github.com/shivendra195/supplyChainManagement/providers"
 	"github.com/shivendra195/supplyChainManagement/providers/dbhelperprovider"
 	"github.com/shivendra195/supplyChainManagement/providers/dbprovider"
 	"github.com/shivendra195/supplyChainManagement/providers/middlewareprovider"
+	"log"
 	"net/http"
 	"os"
-
 	"time"
-
-	"github.com/shivendra195/supplyChainManagement/providers"
 	// "example.com/supplyChainManagement/providers/dbhelperprovider"
 	//"example.com/supplyChainManagement/providers/dbprovider"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/sirupsen/logrus"
 )
@@ -20,8 +20,8 @@ import (
 const (
 
 	// jdbc:postgresql://localhost:5432/scmdb
-	defaultPSQLURL    = "jdbc:postgresql://localhost:5432/scmdb"
-	defaultPortNumber = "8080"
+	//defaultPSQLURL    = fmt.Sprint("postgresql://admin:root@localhost:5432/scmdb?sslmode\=enable")
+	defaultPortNumber = "80"
 )
 
 type Server struct {
@@ -38,6 +38,11 @@ type Server struct {
 
 func SrvInit() *Server {
 
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatalf("Some error occured. Err: %s", err)
+	}
+
 	// connection to database
 	//PSQLC := dbprovider.NewSQLCProvider(os.Getenv("PSQL_DB_URL"))
 
@@ -47,6 +52,8 @@ func SrvInit() *Server {
 
 	//PSQL connection
 	db := dbprovider.NewPSQLProvider(os.Getenv("PSQL_DB_URL"))
+	//db := dbprovider.NewPSQLProvider(PSQL_DB_URL)
+	//db := dbprovider.NewPSQLProvider(defaultPSQLURL)
 
 	// database helper functions
 	dbHelper := dbhelperprovider.NewDBHepler(db.DB())
