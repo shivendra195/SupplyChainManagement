@@ -23,7 +23,7 @@ func NewPSQLProvider(connectionString string) providers.DBProvider {
 	for i := 0; i < maxAttempts; i++ {
 		db, err = sqlx.Connect("postgres", connectionString)
 		if err != nil {
-			logrus.Errorf("unable to connect to postgres PSQL %v", err)
+			logrus.Errorf("unable to connect to postgres PSQL %v, connection string := %v", err, connectionString)
 			time.Sleep(3 * time.Second)
 			continue
 		}
