@@ -20,6 +20,7 @@ import (
 
 func (srv *Server) register(resp http.ResponseWriter, req *http.Request) {
 	var newUserReq models.CreateNewUserRequest
+	uc := srv.MiddlewareProvider.UserFromContext(req.Context())
 
 	err := json.NewDecoder(req.Body).Decode(&newUserReq)
 	if err != nil {
@@ -28,13 +29,13 @@ func (srv *Server) register(resp http.ResponseWriter, req *http.Request) {
 	}
 
 	if newUserReq.Email.String == "" {
-		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "Email  cannot be empty", "Email cannot be empty")
+		scmerrors.RespondClientErr(resp, errors.New("email cannot be empty"), http.StatusBadRequest, "Email  cannot be empty", "Email cannot be empty")
 		return
 	}
 
 	name := strings.TrimSpace(newUserReq.Name)
 	if name == "" {
-		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "Name cannot be empty", "Name cannot be empty")
+		scmerrors.RespondClientErr(resp, errors.New("name cannot be empty"), http.StatusBadRequest, "Name cannot be empty", "Name cannot be empty")
 		return
 	}
 	// checking if the user is already exist
@@ -56,22 +57,22 @@ func (srv *Server) register(resp http.ResponseWriter, req *http.Request) {
 	}
 
 	if newUserReq.Phone.String == "" {
-		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "Phone number cannot be empty", "Phone number cannot be empty")
+		scmerrors.RespondClientErr(resp, errors.New("phone number cannot be empty"), http.StatusBadRequest, "Phone number cannot be empty", "Phone number cannot be empty")
 		return
 	}
 
 	if newUserReq.Password == "" {
-		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "password cannot be empty", "password cannot be empty")
+		scmerrors.RespondClientErr(resp, errors.New("password cannot be empty"), http.StatusBadRequest, "password cannot be empty", "password cannot be empty")
 		return
 	}
 
 	if newUserReq.Gender == "" {
-		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "gender cannot be empty", "gender cannot be empty")
+		scmerrors.RespondClientErr(resp, errors.New("gender cannot be empty"), http.StatusBadRequest, "gender cannot be empty", "gender cannot be empty")
 		return
 	}
 
 	if newUserReq.DateOfBirth.String == "" {
-		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "Date of birth cannot be empty", "Date of birth cannot be empty")
+		scmerrors.RespondClientErr(resp, errors.New("date of birth cannot be empty"), http.StatusBadRequest, "Date of birth cannot be empty", "Date of birth cannot be empty")
 		return
 	}
 
@@ -84,7 +85,7 @@ func (srv *Server) register(resp http.ResponseWriter, req *http.Request) {
 	age := time.Now().Year() - dateOfBirth.Year()
 
 	if age < models.MinAgeLimit {
-		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "user should be at least 18 years old", "error in parsing date of birth")
+		scmerrors.RespondClientErr(resp, errors.New("user should be at least 18 years old"), http.StatusBadRequest, "user should be at least 18 years old", "error in parsing date of birth")
 		return
 	}
 
@@ -124,12 +125,12 @@ func (srv *Server) register(resp http.ResponseWriter, req *http.Request) {
 	}
 
 	if isMobileAlreadyExist {
-		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "this phone number is already linked with one of our account please use a different phone number", "unable to create a user")
+		scmerrors.RespondClientErr(resp, errors.New("phone number already exist"), http.StatusBadRequest, "this phone number is already linked with one of our account please use a different phone number", "unable to create a user")
 		return
 	}
 
 	// Creating user in the database
-	userID, err := srv.DBHelper.CreateNewUser(&newUserReq)
+	userID, err := srv.DBHelper.CreateNewUser(&newUserReq, uc.UserID)
 	if err != nil {
 		scmerrors.RespondClientErr(resp, err, http.StatusInternalServerError, "Error registering new user aaaaaaaaaaa", "")
 		return
@@ -139,15 +140,6 @@ func (srv *Server) register(resp http.ResponseWriter, req *http.Request) {
 		"message": "success",
 		"userId":  userID,
 	})
-}
-
-func (srv *Server) fetchUser(resp http.ResponseWriter, r *http.Request) {
-	uc := srv.MiddlewareProvider.UserFromContext(r.Context())
-	fetchedAuthor, err := srv.DBHelper.FetchUserData(uc.UserID)
-	if err != nil {
-		logrus.Error("error creating user in database", err)
-	}
-	utils.EncodeJSON200Body(resp, fetchedAuthor)
 }
 
 func (srv *Server) loginWithEmailPassword(resp http.ResponseWriter, req *http.Request) {
@@ -167,13 +159,15 @@ func (srv *Server) loginWithEmailPassword(resp http.ResponseWriter, req *http.Re
 		scmerrors.RespondClientErr(resp, errors.New("email can not be empty"), http.StatusBadRequest, "Please enter email to login", "email can not be empty")
 		return
 	}
+	UserDataByEmail, err := srv.DBHelper.GetUserInfoByEmail(authLoginRequest.Email)
 
 	loginReq := models.EmailAndPassword{
 		Email:    authLoginRequest.Email,
 		Password: authLoginRequest.Password,
 	}
 	loginReq.Email = strings.ToLower(loginReq.Email)
-	userID, errorMessage, err := srv.DBHelper.LogInUserUsingEmailAndRole(loginReq, models.Admin)
+
+	userID, errorMessage, err := srv.DBHelper.LogInUserUsingEmailAndRole(loginReq, UserDataByEmail.Role)
 	if err != nil {
 		scmerrors.RespondClientErr(resp, err, http.StatusInternalServerError, errorMessage, errorMessage)
 		return
@@ -200,24 +194,26 @@ func (srv *Server) loginWithEmailPassword(resp http.ResponseWriter, req *http.Re
 
 	devClaims := make(map[string]interface{})
 	devClaims["UUIDToken"] = UUIDToken
-	devClaims["userInfo"] = userInfo
+	devClaims["userInfo"] = UserDataByEmail
 	devClaims["UserSession"] = createUserSession
 
-	//token, err = authProvider.GenerateJWT(devClaims)
-	//if err != nil {
-	//	scmerrors.RespondClientErr(resp, err, http.StatusInternalServerError, "error while login", "error while login")
-	//	return
-	//}
-
-	token, err = authProvider.GenerateJWT(map[string]interface{}{
-		"userInfo":    userInfo,
-		"UUIDToken":   UUIDToken,
-		"UserSession": createUserSession,
-	})
+	token, err = authProvider.GenerateJWT(devClaims)
 	if err != nil {
 		scmerrors.RespondClientErr(resp, err, http.StatusInternalServerError, "error while login", "error while login")
 		return
 	}
+
+	//devClaims := make(map[string]interface{})
+	//devClaims["userInfo"] = userInfo
+	//devClaims["UUIDToken"] = UUIDToken
+	//devClaims["UserSession"] = createUserSession
+	//
+	//token, err = authProvider.GenerateJWT(devClaims)
+	//
+	//if err != nil {
+	//	scmerrors.RespondClientErr(resp, err, http.StatusInternalServerError, "error while login", "error while login")
+	//	return
+	//}
 
 	utils.EncodeJSONBody(resp, http.StatusOK, map[string]interface{}{
 		"userInfo": userInfo,
@@ -234,4 +230,100 @@ func (srv *Server) logout(resp http.ResponseWriter, r *http.Request) {
 	utils.EncodeJSON200Body(resp, map[string]interface{}{
 		"message": "successfully logout",
 	})
+}
+
+func (srv *Server) fetchUser(resp http.ResponseWriter, r *http.Request) {
+	uc := srv.MiddlewareProvider.UserFromContext(r.Context())
+	fetchedAuthor, err := srv.DBHelper.FetchUserData(uc.UserID)
+	if err != nil {
+		logrus.Error("error creating user in database", err)
+	}
+	utils.EncodeJSON200Body(resp, fetchedAuthor)
+}
+
+func (srv *Server) changePassword(resp http.ResponseWriter, req *http.Request) {
+	var changePasswordRequest models.ChangePasswordRequest
+	uc := srv.MiddlewareProvider.UserFromContext(req.Context())
+
+	err := json.NewDecoder(req.Body).Decode(&changePasswordRequest)
+	if err != nil {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "error updating password", "Error parsing request")
+		return
+	}
+
+	if changePasswordRequest.OldPassword == "" {
+		scmerrors.RespondClientErr(resp, errors.New("old password cannot be empty"), http.StatusBadRequest, "old password cannot be empty", "password cannot be empty")
+		return
+	}
+	if changePasswordRequest.NewPassword == "" {
+		scmerrors.RespondClientErr(resp, errors.New("new password cannot be empty"), http.StatusBadRequest, "new password cannot be empty", "password cannot be empty")
+		return
+	}
+	isPasswordUpdated, err := srv.DBHelper.ChangePasswordByUserID(uc.UserID, changePasswordRequest)
+	if err != nil {
+		logrus.Error("error updating password", err)
+	}
+	if !isPasswordUpdated {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "unable to update the password ", "unable to update the password ")
+		return
+	}
+
+	utils.EncodeJSON200Body(resp, map[string]interface{}{
+		"message": "successfully updated password",
+	})
+}
+
+func (srv *Server) dashboard(resp http.ResponseWriter, r *http.Request) {
+	dashboardData, err := srv.createDashboard()
+	if err != nil {
+		logrus.Error("dashboard: error creating dashboard data ", err)
+	}
+	utils.EncodeJSON200Body(resp, dashboardData)
+}
+
+func (srv *Server) createDashboard() (models.DashboardData, error) {
+	var dashboardData models.DashboardData
+	var err error
+	dashboardData.RecentUsers, err = srv.DBHelper.RecentUsers(5)
+	if err != nil {
+		logrus.Error("createDashboard: error getting recent user data", err)
+	}
+	dashboardData.RecentOrders, err = srv.DBHelper.RecentOrders(5)
+	if err != nil {
+		logrus.Error("createDashboard: error getting recent order data", err)
+	}
+	dashboardData.OrderSummary, err = srv.DBHelper.OrderSummary()
+	if err != nil {
+		logrus.Error("createDashboard: error getting order summary data", err)
+	}
+	return dashboardData, nil
+}
+
+func (srv *Server) Users(resp http.ResponseWriter, r *http.Request) {
+	uc := srv.MiddlewareProvider.UserFromContext(r.Context())
+	role := models.UserRoles(r.URL.Query().Get("role"))
+	limit, offset, err := utils.GetLimitOffsetFromRequest(r, models.DefaultLimit)
+	if err != nil {
+		logrus.Error("Users :error getting limit offset from request", err)
+	}
+	UserList, err := srv.DBHelper.UsersAll(uc.UserID, limit, offset, role)
+	if err != nil {
+		logrus.Error("Users :error getting users list", err)
+	}
+	utils.EncodeJSON200Body(resp, UserList)
+}
+
+func (srv *Server) Order(resp http.ResponseWriter, r *http.Request) {
+	uc := srv.MiddlewareProvider.UserFromContext(r.Context())
+	var order models.Order
+	err := json.NewDecoder(r.Body).Decode(&order)
+	if err != nil {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "error creating order", "Error parsing request")
+		return
+	}
+	fetchedAuthor, err := srv.DBHelper.CreateOrder(uc.UserID, uc.Address, order)
+	if err != nil {
+		logrus.Error("error creating user in database", err)
+	}
+	utils.EncodeJSON200Body(resp, fetchedAuthor)
 }

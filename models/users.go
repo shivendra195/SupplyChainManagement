@@ -23,6 +23,11 @@ type CreateNewUserRequest struct {
 	UpdatedAt   timestamp.Timestamp `db:"updated_at"`
 }
 
+type ChangePasswordRequest struct {
+	OldPassword string `json:"oldPassword"  `
+	NewPassword string `json:"newPassword"  `
+}
+
 type UserData struct {
 	UserID int `json:"userId" db:"id"`
 }
@@ -43,13 +48,33 @@ type EmailAndPassword struct {
 }
 
 type FetchUserData struct {
-	UserID      int         `json:"userId" db:"id"`
-	Name        string      `json:"name" db:"name"`
-	Address     string      `json:"address" db:"address"`
-	Email       string      `json:"email" db:"email"`
-	Phone       string      `json:"phone" db:"phone"`
-	Gender      GenderType  `json:"gender" db:"gender"`
-	DateOfBirth null.String `json:"dateOfBirth" db:"date_of_birth"`
+	UserID          int         `json:"userId" db:"id"`
+	Name            string      `json:"name" db:"name"`
+	Role            string      `json:"role" db:"role"`
+	Address         string      `json:"address" db:"address"`
+	Email           string      `json:"email" db:"email"`
+	Phone           string      `json:"phone" db:"phone"`
+	Gender          GenderType  `json:"gender" db:"gender"`
+	DateOfBirth     null.String `json:"dateOfBirth" db:"date_of_birth"`
+	ProfileImageID  string      `json:"profileImageId" db:"profile_image_id"`
+	ProfileImageURL string      `json:"profileImageURL" db:"url"`
+	State           string      `json:"state" db:"state"`
+	Country         string      `json:"country" db:"country"`
+}
+
+type AdminDashboardData struct {
+	TotalUsers     int        `json:"totalUsers" db:"total_users"`
+	TotalDealers   int        `json:"totalDealers" db:"total_dealers"`
+	TotalRetailers int        `json:"totalRetailers" db:"total_retailers"`
+	ListUserInfo   []UserInfo `json:"listUserInfo" db:"list_user_info"`
+}
+
+type UserInfo struct {
+	UserID    int         `json:"userId" db:"id"`
+	Name      string      `json:"name" db:"name"`
+	Email     string      `json:"email" db:"email"`
+	Role      string      `json:"role" db:"role"`
+	CreatedAt null.String `json:"createdAt" db:"created_at"`
 }
 
 type FetchUserSessionsData struct {
@@ -73,6 +98,35 @@ type UserContextData struct {
 	UserID      int         `json:"userId" db:"id"`
 	SessionID   string      `json:"sessionID" db:"token"`
 	Name        string      `json:"name" db:"name"`
+	Role        string      `json:"role" db:"role"`
+	Address     string      `json:"address" db:"address"`
+	Email       string      `json:"email" db:"email"`
+	Phone       string      `json:"phone" db:"phone"`
+	Gender      GenderType  `json:"gender" db:"gender"`
+	DateOfBirth null.String `json:"dateOfBirth" db:"date_of_birth"`
+}
+
+type RecentOrders struct {
+	UserID    int         `json:"userId" db:"user_id"`
+	Name      string      `json:"name" db:"name"`
+	OrderID   int         `json:"orderId" db:"order_id"`
+	Quantity  string      `json:"quantity" db:"quantity"`
+	Status    OrderStatus `json:"status" db:"order_status"`
+	CreatedAt null.String `json:"createdAt" db:"created_at"`
+}
+
+type OrderSummary struct {
+	TotalCreatedOrders int `json:"totalCreatedOrders" db:"total_created_orders"`
+	OpenDeliveries     int `json:"openDeliveries" db:"open_deliveries"`
+	InStock            int `json:"inStock" db:"in_stock"`
+	InTransfer         int `json:"inTransfer" db:"in_transfer"`
+	SoldOut            int `json:"soldOut" db:"sold_out"`
+}
+
+type GetUserDataByEmail struct {
+	UserID      int         `json:"userId" db:"id"`
+	Name        string      `json:"name" db:"name"`
+	Role        UserRoles   `json:"role" db:"role"`
 	Address     string      `json:"address" db:"address"`
 	Email       string      `json:"email" db:"email"`
 	Phone       string      `json:"phone" db:"phone"`

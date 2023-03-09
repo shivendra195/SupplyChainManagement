@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
@@ -40,6 +41,34 @@ func EncodeJSON200Body(resp http.ResponseWriter, data interface{}) {
 	if err != nil {
 		logrus.Errorf("EncodeJSON200Body : Error encoding response %v", err)
 	}
+}
+
+func GetLimitOffsetFromRequest(req *http.Request, defaultLimit int) (limit, offset int, err error) {
+	if req.URL.Query().Get("limit") != "" {
+		limit, err = strconv.Atoi(req.URL.Query().Get("limit"))
+		if err != nil {
+			logrus.Errorf("GetLimitOffsetFromRequest: error in converting limit: %v", err)
+			return limit, offset, err
+		}
+
+		if limit <= 0 {
+			limit = defaultLimit
+		}
+	} else {
+		limit = defaultLimit
+	}
+	if req.URL.Query().Get("offset") != "" {
+		offset, err = strconv.Atoi(req.URL.Query().Get("offset"))
+		if err != nil {
+			logrus.Errorf("GetLimitOffsetFromRequest: error in converting offset: %v", err)
+			return limit, offset, err
+		}
+
+		if offset < 0 {
+			offset = 0
+		}
+	}
+	return limit, offset, nil
 }
 
 func StorePahoDataToJsonFile(data map[string]interface{}) {

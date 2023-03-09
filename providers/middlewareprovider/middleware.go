@@ -25,6 +25,7 @@ const (
 	maxAge        = 300
 	sessionClaims = "sessionToken"
 	minimumTime   = 10
+	userContext   = "userData"
 )
 
 type middleware struct {
@@ -41,8 +42,6 @@ func (AM *middleware) Middleware() func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var token string
-			r.Header.Get("token")
-			r.Header.Get("Connection")
 
 			tokenParts := strings.Split(r.Header.Get(authorization), space)
 			if len(tokenParts) != 2 {
@@ -61,13 +60,13 @@ func (AM *middleware) Middleware() func(next http.Handler) http.Handler {
 				return
 			}
 
-			SessionId, verifiedClaims, UserData, err := AM.getUserDataFromClaims(claims)
+			SessionId, isClaimsVerified, err := AM.getUserDataFromClaims(claims)
 			if err != nil {
 				scmerrors.RespondClientErr(w, err, http.StatusUnauthorized, "getUserDataFromClaims: Invalid token", "Invalid token")
 				return
 			}
 
-			if !verifiedClaims {
+			if !isClaimsVerified {
 				scmerrors.RespondClientErr(w, errors.New("invalid token"), http.StatusUnauthorized, "Invalid token", "Invalid token")
 				return
 			}
@@ -76,17 +75,30 @@ func (AM *middleware) Middleware() func(next http.Handler) http.Handler {
 				scmerrors.RespondClientErr(w, err, http.StatusUnauthorized, "UpdateSession: error updating sessions ", "UpdateSession error updating sessions ")
 				return
 			}
+
+			data := claims["data"].(map[string]interface{})
+			issuer := claims["iss"].(string)
+			role := data["role"].(string)
+			userIDInt, err := strconv.Atoi(issuer)
+			if err != nil {
+				scmerrors.RespondClientErr(w, err, http.StatusUnauthorized, "UpdateSession: error updating sessions ", "UpdateSession error updating sessions ")
+				return
+			}
+			UserData, err := AM.DBHelper.FetchUserData(userIDInt)
+
 			var userContextData models.UserContextData
-			userContextData.UserID = UserData.UserID
+			userContextData.UserID = userIDInt
 			userContextData.Name = UserData.Name
+			userContextData.Role = role
 			userContextData.Email = UserData.Email
 			userContextData.Phone = UserData.Phone
 			userContextData.Gender = UserData.Gender
 			userContextData.DateOfBirth = UserData.DateOfBirth
 			userContextData.Address = UserData.Address
 			userContextData.SessionID = SessionId
-
-			ctxWithUser := context.WithValue(r.Context(), "userContext", userContextData)
+			fmt.Println(userContextData)
+			fmt.Println("session id ", SessionId)
+			ctxWithUser := context.WithValue(r.Context(), models.UserContext, userContextData)
 			rWithUser := r.WithContext(ctxWithUser)
 			next.ServeHTTP(w, rWithUser)
 
@@ -95,7 +107,7 @@ func (AM *middleware) Middleware() func(next http.Handler) http.Handler {
 }
 
 func (AM *middleware) UserFromContext(ctx context.Context) models.UserContextData {
-	return ctx.Value("userContext").(models.UserContextData)
+	return ctx.Value(models.UserContext).(models.UserContextData)
 }
 
 func GetClaimsFromToken(tokenString string) (jwt.MapClaims, error) {
@@ -115,61 +127,51 @@ func GetClaimsFromToken(tokenString string) (jwt.MapClaims, error) {
 	return jwt.MapClaims{}, err
 }
 
-func (AM *middleware) getUserDataFromClaims(claims jwt.MapClaims) (string, bool, models.FetchUserData, error) {
+func (AM *middleware) getUserDataFromClaims(claims jwt.MapClaims) (string, bool, error) {
 	var validToken bool
 	var standardClaims jwt.StandardClaims
-	var UserData models.FetchUserData
-	data := make(map[string]interface{})
-	data = claims["data"].(map[string]interface{})
+	//var UserData models.FetchUserData
+	//data := make(map[string]interface{})
+	data := claims["data"].(map[string]interface{})
 
-	var issuer, name, sessionId string
+	var issuer, sessionID string
 
 	issuer = claims["iss"].(string)
-	expirationTime := claims["exp"]
-	name = data["name"].(string)
-	email := data["email"]
+	//name = data["name"].(string)
+	//role := data["role"].(string)
+	//email := data["email"]
 	UUIDToken := data["uuidToken"].(string)
-	deviceId := data["deviceId"].(string)
-	modelName := data["modelName"].(string)
-	osVersion := data["oSVersion"].(string)
-	platform := data["platform"].(string)
-
-	fmt.Println("\tdata := claims[\"data\"].(map[string]string)", data)
-	fmt.Println("issuer := claims[\"iss\"].(string)", issuer)
-	fmt.Println("\texpirationTime  := claims[\"exp\"].(string)", expirationTime)
-	fmt.Println("fmt.Println(standardClaims.Issuer)", standardClaims.Issuer)
+	//deviceId := data["deviceId"].(string)
+	//modelName := data["modelName"].(string)
+	//osVersion := data["oSVersion"].(string)
+	//platform := data["platform"].(string)
 
 	UserIDInt, err := strconv.Atoi(issuer)
 	if err != nil {
 		logrus.Error("GetUserDataFromClaims: error converting userId string to integer ", err)
-		fmt.Println("GetUserDataFromClaims: error converting userId string to integer ", err)
-		return sessionId, validToken, UserData, errors.New(fmt.Sprintln("GetUserDataFromClaims: error converting userId string to integer & \n", err))
+		return sessionID, validToken, errors.New(fmt.Sprintln("GetUserDataFromClaims: error converting userId string to integer & \n", err))
 	}
 
-	UserData, err = AM.DBHelper.FetchUserData(UserIDInt)
-	if err != nil {
-		logrus.Error("GetUserDataFromClaims: error fetching user Data from database ", err)
-		return sessionId, validToken, UserData, errors.New(fmt.Sprintln("GetUserDataFromClaims: error fetching user Data from database  & \n", err))
-	}
-
-	UserSessionsData, err := AM.DBHelper.FetchUserSessionData(UserIDInt, deviceId, modelName, osVersion, platform)
+	UserSessionsData, err := AM.DBHelper.FetchUserSessionData(UserIDInt)
 	if err != nil {
 		logrus.Error("GetUserDataFromClaims: error fetching user session  Data from database ", err)
-		return sessionId, validToken, UserData, errors.New(fmt.Sprintln("GetUserDataFromClaims: error fetching user Data from database  & \n", err))
+		return sessionID, validToken, errors.New(fmt.Sprintln("GetUserDataFromClaims: error fetching user Data from database  & \n", err))
 	}
-	sessionId = UserSessionsData[0].UUIDToken
-	fmt.Println("GetUserDataFromClaims: UserSessionsData[0].UUIDToken ", UserSessionsData[0].UUIDToken, UUIDToken, UserSessionsData[0].EndTime.Unix())
-	if email == UserData.Email && name == UserData.Name && UserIDInt == UserData.UserID {
-		if standardClaims.ExpiresAt < time.Now().Unix() {
-			if UserSessionsData[0].UUIDToken == UUIDToken && UserSessionsData[0].EndTime.Unix() > time.Now().Unix() {
-				return sessionId, true, UserData, nil
-			} else {
-				return sessionId, validToken, UserData, errors.New(fmt.Sprintln("invalid session id   & \n", err))
-			}
-		} else {
-			return sessionId, validToken, UserData, errors.New(fmt.Sprintln("token is expired \n", err))
+	//fmt.Println("UserSessionsData ", UserSessionsData)
+	//fmt.Println("UserIDInt ", UserIDInt)
+	//fmt.Println("data ", data)
+	//sessionId = UserSessionsData[0].UUIDToken
+
+	var sessionEndTime time.Time
+	for _, sessionData := range UserSessionsData {
+		sessionID = sessionData.UUIDToken
+		sessionEndTime = sessionData.EndTime
+		if standardClaims.ExpiresAt < time.Now().Unix() && sessionID == UUIDToken && sessionEndTime.Unix() > time.Now().Unix() {
+			return sessionID, true, nil
 		}
-	} else {
-		return sessionId, validToken, UserData, errors.New(fmt.Sprintln("invalid token  \n", err))
+		// else {
+		//  	return sessionId, validToken, errors.New(fmt.Sprintln("invalid session id ", err))
+		// }
 	}
+	return sessionID, validToken, errors.New(fmt.Sprintln("invalid session id or Session is expired", err))
 }

@@ -12,13 +12,21 @@ func (srv *Server) InjectRoutes() *chi.Mux {
 
 	r.Route("/api", func(api chi.Router) {
 		api.Route("/public", func(public chi.Router) {
-			public.Post("/register", srv.register)
 			public.Post("/login", srv.loginWithEmailPassword)
-			public.Get("/user", srv.fetchUser)
+			//public.Get("/user", srv.fetchUser)
 			public.Route("/", func(user chi.Router) {
 				user.Use(srv.MiddlewareProvider.Middleware())
-				user.Get("/profile", srv.fetchUser)
+				user.Post("/register", srv.register)
+				user.Post("/change-password", srv.changePassword)
 				user.Post("/logout", srv.logout)
+				user.Get("/profile", srv.fetchUser)
+				user.Post("/scan", srv.ScanQR)
+				user.Get("/dashboard", srv.dashboard)
+				user.Get("/users", srv.Users)
+			})
+			public.Route("/order", func(order chi.Router) {
+				order.Use(srv.MiddlewareProvider.Middleware())
+				order.Post("/", srv.Order)
 			})
 		})
 	})

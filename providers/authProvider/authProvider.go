@@ -1,7 +1,6 @@
 package authProvider
 
 import (
-	"fmt"
 	"github.com/shivendra195/supplyChainManagement/models"
 	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/null"
@@ -41,24 +40,21 @@ type JWTClaim struct {
 }
 
 func GenerateJWT(devClaims map[string]interface{}) (tokenString string, err error) {
-	var userInfo models.FetchUserData
+	// var userInfo models.GetUserDataByEmail
 	var userSessionData models.CreateSessionRequest
 	var ok bool
 	var UUIDToken string
-	userInfo, ok = devClaims["userInfo"].(models.FetchUserData)
+	userInfo, ok := devClaims["userInfo"].(models.GetUserDataByEmail)
 	if !ok {
-		logrus.Error("GenerateJWT:  error getting values out of the devClaims map")
-		fmt.Println("GenerateJWT:  error getting values out of the devClaims map")
+		logrus.Error("GenerateJWT:  error getting values out of the devClaims map 1")
 	}
 	UUIDToken, ok = devClaims["UUIDToken"].(string)
 	if !ok {
-		logrus.Error("GenerateJWT:  error getting values out of the devClaims map")
-		fmt.Println("GenerateJWT:  error getting values out of the devClaims map")
+		logrus.Error("GenerateJWT:  error getting values out of the devClaims map 2")
 	}
 	userSessionData, ok = devClaims["UserSession"].(models.CreateSessionRequest)
 	if !ok {
-		logrus.Error("GenerateJWT:  error getting values out of the devClaims map")
-		fmt.Println("GenerateJWT:  error getting values out of the devClaims map")
+		logrus.Error("GenerateJWT:  error getting values out of the devClaims map 3")
 	}
 	UserIDString := strconv.Itoa(userInfo.UserID)
 	expirationTime := time.Now().Add(1 * time.Hour)
@@ -69,6 +65,7 @@ func GenerateJWT(devClaims map[string]interface{}) (tokenString string, err erro
 		"data": map[string]string{
 			"id":        UserIDString,
 			"name":      userInfo.Name,
+			"role":      string(userInfo.Role),
 			"modelName": userSessionData.ModelName,
 			"platform":  userSessionData.Platform,
 			"oSVersion": userSessionData.OSVersion,

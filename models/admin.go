@@ -22,3 +22,9 @@ type CreateSessionRequest struct {
 	OSVersion string `json:"osVersion"`
 	DeviceID  string `json:"deviceId"`
 }
+
+type DashboardData struct {
+	RecentUsers  []UserInfo     `json:"recentUsers"`
+	RecentOrders []RecentOrders `json:"recentOrders"`
+	OrderSummary OrderSummary   `json:"orderSummary"`
+}
