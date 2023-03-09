@@ -20,7 +20,7 @@ const (
 
 	// jdbc:postgresql://localhost:5432/scmdb
 	defaultPSQLURL    = "postgresql://admin:root@localhost:5432/scmdb?sslmode=require"
-	defaultPortNumber = "80"
+	defaultPortNumber = "8000"
 )
 
 type Server struct {
