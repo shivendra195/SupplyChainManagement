@@ -19,7 +19,7 @@ import (
 const (
 
 	// jdbc:postgresql://localhost:5432/scmdb
-	defaultPSQLURL    = "postgresql://admin:root@localhost:5432/scmdb?sslmode=default"
+	defaultPSQLURL    = "postgresql://admin:root@localhost:5432/scmdb?sslmode=require"
 	defaultPortNumber = "80"
 )
 
