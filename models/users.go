@@ -3,6 +3,7 @@ package models
 import (
 	"errors"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/lib/pq"
 	"github.com/volatiletech/null"
 	"time"
 )
@@ -10,17 +11,20 @@ import (
 var ErrorPasswordNotMatched = errors.New("password not matched")
 
 type CreateNewUserRequest struct {
-	Name        string              `json:"name"  db:"name"`
-	Email       null.String         `json:"email"  db:"email"`
-	Role        UserRoles           `json:"role"  db:"role"`
-	Password    string              `json:"password"  db:"password"`
-	Address     string              `json:"address" db:"address"`
-	Gender      GenderType          `json:"gender"  db:"gender"`
-	CountryCode null.String         `json:"countryCode" db:"country_code"`
-	Phone       null.String         `json:"phone" db:"phone"`
-	DateOfBirth null.String         `json:"dateOfBirth" db:"date_of_birth"`
-	CreatedAt   time.Time           `db:"created_at"`
-	UpdatedAt   timestamp.Timestamp `db:"updated_at"`
+	Name           string              `json:"name"  db:"name"`
+	Email          null.String         `json:"email"  db:"email"`
+	Role           UserRoles           `json:"role"  db:"role"`
+	Password       string              `json:"password"  db:"password"`
+	Address        string              `json:"address" db:"address"`
+	Gender         GenderType          `json:"gender"  db:"gender"`
+	CountryCode    null.String         `json:"countryCode" db:"country_code"`
+	Phone          null.String         `json:"phone" db:"phone"`
+	DateOfBirth    null.String         `json:"dateOfBirth" db:"date_of_birth"`
+	CreatedAt      time.Time           `db:"created_at"`
+	UpdatedAt      timestamp.Timestamp `db:"updated_at"`
+	ProfileImageID int                 `json:"profileImageId" db:"profile_image_id"`
+	State          string              `json:"state" db:"state"`
+	Country        string              `json:"country" db:"country"`
 }
 
 type ChangePasswordRequest struct {
@@ -48,6 +52,21 @@ type EmailAndPassword struct {
 }
 
 type FetchUserData struct {
+	UserID          int         `json:"userId" db:"id"`
+	Name            string      `json:"name" db:"name"`
+	Role            string      `json:"role" db:"role"`
+	Address         string      `json:"address" db:"address"`
+	Email           string      `json:"email" db:"email"`
+	Phone           string      `json:"phone" db:"phone"`
+	Gender          GenderType  `json:"gender" db:"gender"`
+	DateOfBirth     null.String `json:"dateOfBirth" db:"date_of_birth"`
+	ProfileImageID  string      `json:"profileImageId" db:"profile_image_id"`
+	ProfileImageURL string      `json:"profileImageURL" db:"url"`
+	State           string      `json:"state" db:"state"`
+	Country         string      `json:"country" db:"country"`
+}
+
+type ListUsers struct {
 	UserID          int         `json:"userId" db:"id"`
 	Name            string      `json:"name" db:"name"`
 	Role            string      `json:"role" db:"role"`
@@ -132,4 +151,24 @@ type GetUserDataByEmail struct {
 	Phone       string      `json:"phone" db:"phone"`
 	Gender      GenderType  `json:"gender" db:"gender"`
 	DateOfBirth null.String `json:"dateOfBirth" db:"date_of_birth"`
+}
+
+type EditProfile struct {
+	Name           string      `json:"name"`
+	Address        string      `json:"address" db:"address"`
+	Email          string      `json:"email" db:"email"`
+	Phone          string      `json:"phone" db:"phone"`
+	CountryCode    null.String `json:"countryCode" db:"country_code"`
+	DateOfBirth    null.String `json:"dateOfBirth" db:"date_of_birth"`
+	ProfileImageID int         `json:"profileImageId" db:"profile_image_id"`
+	State          string      `json:"state" db:"state"`
+	Country        string      `json:"country" db:"country"`
+}
+
+type CountryAndState struct {
+	CountryID   int            `json:"countryId" db:"id"`
+	Country     string         `json:"country" db:"country"`
+	CountryCode string         `json:"countryCode" db:"country_code"`
+	StateID     pq.Int32Array  `json:"stateId" db:"state_id"`
+	State       pq.StringArray `json:"state" db:"state"`
 }

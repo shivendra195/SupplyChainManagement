@@ -22,4 +22,6 @@ type DBHelperProvider interface {
 	OrderSummary() (models.OrderSummary, error)
 	CreateOrder(userID int, address string, order models.Order) (models.CreatedOrder, error)
 	GetUserInfoByEmail(email string) (models.GetUserDataByEmail, error)
+	EditProfile(userID int, editProfileRequest models.EditProfile) error
+	GetCountryAndState() ([]models.CountryAndState, error)
 }

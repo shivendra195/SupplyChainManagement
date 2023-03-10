@@ -85,7 +85,10 @@ func (AM *middleware) Middleware() func(next http.Handler) http.Handler {
 				return
 			}
 			UserData, err := AM.DBHelper.FetchUserData(userIDInt)
-
+			if err != nil {
+				scmerrors.RespondClientErr(w, err, http.StatusUnauthorized, "UpdateSession: error updating sessions ", "UpdateSession error updating sessions ")
+				return
+			}
 			var userContextData models.UserContextData
 			userContextData.UserID = userIDInt
 			userContextData.Name = UserData.Name

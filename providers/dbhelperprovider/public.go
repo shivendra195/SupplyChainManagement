@@ -25,7 +25,7 @@ func (dh *DBHelper) CreateNewUser(newUserRequest *models.CreateNewUserRequest, u
 
 		SQL := `INSERT INTO users
 				(name, email, phone, password, address, country_code, created_at, created_by)
-				VALUES (trim($1), lower(trim($2)), $3, $4,$5,$6,$7)
+				VALUES (trim($1), lower(trim($2)), $3, $4,$5,$6,$7,$8)
 				RETURNING id`
 
 		args := []interface{}{
@@ -46,10 +46,10 @@ func (dh *DBHelper) CreateNewUser(newUserRequest *models.CreateNewUserRequest, u
 		}
 
 		SQL = `INSERT INTO user_profiles
-				(user_id, gender, date_of_birth)
-				VALUES ($1, $2, $3)`
+				(user_id, gender, date_of_birth, profile_image_id, state, country)
+				VALUES ($1, $2, $3, $4, $5, $6 )`
 
-		_, err = tx.Exec(SQL, newUserID, newUserRequest.Gender, newUserRequest.DateOfBirth)
+		_, err = tx.Exec(SQL, newUserID, newUserRequest.Gender, newUserRequest.DateOfBirth, newUserRequest.ProfileImageID, newUserRequest.State, newUserRequest.Country)
 		if err != nil {
 			logrus.Errorf("CreateNewUser: error creating user_profile %v", err)
 			return err
@@ -478,4 +478,83 @@ func (dh *DBHelper) GetUserInfoByEmail(email string) (models.GetUserDataByEmail,
 		return getUserDataByEmail, err
 	}
 	return getUserDataByEmail, nil
+}
+
+func (dh *DBHelper) EditProfile(userID int, editProfileRequest models.EditProfile) error {
+
+	txErr := dbutil.WithTransaction(dh.DB, func(tx *sqlx.Tx) error {
+		//language=sql
+		SQL := `UPDATE users
+    		SET  name = $1,
+    		     email = $2, 
+    		     phone = $3, 
+    		     address = $4, 
+    		     country_code = $5, 
+    		     updated_at = now()
+    		WHERE users.id = $6`
+
+		Args := []interface{}{
+			editProfileRequest.Name,
+			editProfileRequest.Email,
+			editProfileRequest.Phone,
+			editProfileRequest.Address,
+			editProfileRequest.CountryCode.String,
+			userID,
+		}
+
+		_, err := tx.Exec(SQL, Args...)
+		if err != nil {
+			logrus.Errorf("EditProfile: error getting user data: %v", err)
+			return err
+		}
+
+		//language=sql
+		SQL = `UPDATE user_profiles
+    		SET  country = $2,
+    		     state = $3, 
+    		     profile_image_id = $4,
+    		     updated_at = now()
+    		WHERE user_id = $1`
+
+		Args = []interface{}{
+			userID,
+			editProfileRequest.Country,
+			editProfileRequest.State,
+			editProfileRequest.ProfileImageID,
+		}
+
+		_, err = tx.Exec(SQL, Args...)
+		if err != nil {
+			logrus.Errorf("EditProfile: error getting user data: %v", err)
+			return err
+		}
+		return nil
+	})
+	if txErr != nil {
+		logrus.Errorf("EditProfile: error in updating user profile: %v", txErr)
+		return txErr
+	}
+	return nil
+}
+
+func (dh *DBHelper) GetCountryAndState() ([]models.CountryAndState, error) {
+	//language=sql
+	SQL := `SELECT  country.id,
+         			country.country,
+         			country.country_code,
+         			array_remove(array_agg(s.id), NULL) state_id,
+         			array_remove(array_agg(s.state), NULL) state
+			FROM country
+         	LEFT JOIN state s on country.id = s.country_id
+			WHERE country.archived_at IS NULL
+  			AND s.archived_at IS NULL
+			GROUP BY country.id, country.country, country.country_code`
+
+	countryAndState := make([]models.CountryAndState, 0)
+	err := dh.DB.Select(&countryAndState, SQL)
+	if err != nil {
+		logrus.Errorf("GetCountryAndState: error getting order summary data : %v", err)
+		return countryAndState, err
+	}
+	return countryAndState, nil
 }

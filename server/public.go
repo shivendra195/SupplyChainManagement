@@ -129,10 +129,27 @@ func (srv *Server) register(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if newUserReq.Role == models.SuperAdmin {
+		scmerrors.RespondClientErr(resp, errors.New("cannot create super admin "), http.StatusBadRequest, "cannot create super admin", "cannot create super admin")
+		return
+	}
+	if newUserReq.State == "" {
+		scmerrors.RespondClientErr(resp, errors.New("state cannot be empty "), http.StatusBadRequest, "state cannot be empty ", "state cannot be empty ")
+		return
+	}
+	if newUserReq.Country == "" {
+		scmerrors.RespondClientErr(resp, errors.New("country cannot be empty "), http.StatusBadRequest, "country cannot be empty ", "country cannot be empty")
+		return
+	}
+	if uc.Role == string(models.Admin) && newUserReq.Role == models.Admin {
+		scmerrors.RespondClientErr(resp, errors.New("admins cannot create admins"), http.StatusBadRequest, "admins cannot create admins. Only super admins can create admins", "country cannot be empty")
+		return
+	}
+
 	// Creating user in the database
 	userID, err := srv.DBHelper.CreateNewUser(&newUserReq, uc.UserID)
 	if err != nil {
-		scmerrors.RespondClientErr(resp, err, http.StatusInternalServerError, "Error registering new user aaaaaaaaaaa", "")
+		scmerrors.RespondClientErr(resp, err, http.StatusInternalServerError, "Error registering new user", "")
 		return
 	}
 
@@ -160,6 +177,10 @@ func (srv *Server) loginWithEmailPassword(resp http.ResponseWriter, req *http.Re
 		return
 	}
 	UserDataByEmail, err := srv.DBHelper.GetUserInfoByEmail(authLoginRequest.Email)
+	if err != nil {
+		scmerrors.RespondClientErr(resp, errors.New("error getting user info"), http.StatusBadRequest, "error getting user info", "error getting user info")
+		return
+	}
 
 	loginReq := models.EmailAndPassword{
 		Email:    authLoginRequest.Email,
@@ -326,4 +347,94 @@ func (srv *Server) Order(resp http.ResponseWriter, r *http.Request) {
 		logrus.Error("error creating user in database", err)
 	}
 	utils.EncodeJSON200Body(resp, fetchedAuthor)
+}
+
+func (srv *Server) editProfile(resp http.ResponseWriter, r *http.Request) {
+	var editProfileRequest models.EditProfile
+	uc := srv.MiddlewareProvider.UserFromContext(r.Context())
+	err := json.NewDecoder(r.Body).Decode(&editProfileRequest)
+	if err != nil {
+		logrus.Error("editProfile : unable to decode request body ", err)
+	}
+	name := strings.TrimSpace(editProfileRequest.Name)
+	if name == "" {
+		scmerrors.RespondClientErr(resp, errors.New("name cannot be empty"), http.StatusBadRequest, "Name cannot be empty", "Name cannot be empty")
+		return
+	}
+	// checking if the user is already exist
+	isUserExist, _, err := srv.DBHelper.IsUserAlreadyExists(editProfileRequest.Email)
+	if err != nil {
+		scmerrors.RespondGenericServerErr(resp, err, "error in processing request")
+		return
+	}
+
+	if isUserExist {
+		scmerrors.RespondClientErr(resp, errors.New("error updating user profile"), http.StatusBadRequest, "this email is already linked with one of our account please use a different email address", "unable to create a user with duplicate email address")
+		return
+	}
+
+	editProfileRequest.Email = strings.ToLower(editProfileRequest.Email)
+	if editProfileRequest.Name == "" {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "name cannot be empty", "name cannot be empty")
+		return
+	}
+	if editProfileRequest.Email == "" {
+		scmerrors.RespondClientErr(resp, errors.New("email cannot be empty"), http.StatusBadRequest, "email cannot be empty", "email cannot be empty")
+		return
+	}
+	if editProfileRequest.Address == "" {
+		scmerrors.RespondClientErr(resp, errors.New("address cannot be empty"), http.StatusBadRequest, "address cannot be empty", "address cannot be empty")
+		return
+	}
+	if editProfileRequest.Country == "" {
+		scmerrors.RespondClientErr(resp, errors.New("country cannot be empty"), http.StatusBadRequest, "country cannot be empty", "name cannot be empty")
+		return
+	}
+	if editProfileRequest.State == "" {
+		scmerrors.RespondClientErr(resp, errors.New("state cannot be empty"), http.StatusBadRequest, "state cannot be empty", "state cannot be empty")
+		return
+	}
+	if editProfileRequest.Phone == "" {
+		scmerrors.RespondClientErr(resp, errors.New("phone cannot be empty"), http.StatusBadRequest, "phone cannot be empty", "phone  cannot be empty")
+		return
+	}
+	uncleanPhoneNumber := editProfileRequest.Phone
+
+	if strings.Count(uncleanPhoneNumber, "+") == 2 {
+		uncleanPhoneNumber = uncleanPhoneNumber[strings.LastIndex(uncleanPhoneNumber, "+"):]
+	}
+
+	phone := strings.ReplaceAll(uncleanPhoneNumber, " ", "")
+
+	num, err := libphonenumber.Parse(phone, "IN")
+	if err != nil {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "Phone Number not in a correct format", "invalid format for phone number")
+		return
+	}
+
+	isValidNumber := libphonenumber.IsValidNumber(num)
+
+	if !isValidNumber {
+		scmerrors.RespondClientErr(resp, errors.New("invalid phone number"), http.StatusBadRequest, "invalid phone number", "invalid phone number")
+		return
+	}
+
+	phoneNumber := libphonenumber.Format(num, libphonenumber.E164)
+	editProfileRequest.Phone = phoneNumber
+
+	err = srv.DBHelper.EditProfile(uc.UserID, editProfileRequest)
+	if err != nil {
+		logrus.Error("error updating user profile in database", err)
+	}
+	utils.EncodeJSON200Body(resp, map[string]interface{}{
+		"message": "profile updated successfully",
+	})
+}
+
+func (srv *Server) getCountryAndState(resp http.ResponseWriter, r *http.Request) {
+	countryAndState, err := srv.DBHelper.GetCountryAndState()
+	if err != nil {
+		logrus.Error("getCountryAndState: error getting Country and State ", err)
+	}
+	utils.EncodeJSON200Body(resp, countryAndState)
 }

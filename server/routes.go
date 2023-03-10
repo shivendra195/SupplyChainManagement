@@ -9,24 +9,27 @@ func (srv *Server) InjectRoutes() *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Get(`/health`, srv.HealthCheck)
-
 	r.Route("/api", func(api chi.Router) {
 		api.Route("/public", func(public chi.Router) {
 			public.Post("/login", srv.loginWithEmailPassword)
+			public.Get("/country-state", srv.getCountryAndState)
 			//public.Get("/user", srv.fetchUser)
 			public.Route("/", func(user chi.Router) {
 				user.Use(srv.MiddlewareProvider.Middleware())
 				user.Post("/register", srv.register)
 				user.Post("/change-password", srv.changePassword)
 				user.Post("/logout", srv.logout)
-				user.Get("/profile", srv.fetchUser)
-				user.Post("/scan", srv.ScanQR)
 				user.Get("/dashboard", srv.dashboard)
 				user.Get("/users", srv.Users)
+				user.Route("/profile", func(profile chi.Router) {
+					profile.Get("/", srv.fetchUser)
+					profile.Put("/", srv.editProfile)
+				})
 			})
 			public.Route("/order", func(order chi.Router) {
 				order.Use(srv.MiddlewareProvider.Middleware())
 				order.Post("/", srv.Order)
+				order.Post("/scan", srv.ScanQR)
 			})
 		})
 	})

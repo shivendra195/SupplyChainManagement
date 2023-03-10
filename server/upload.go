@@ -37,8 +37,12 @@ func (srv *Server) ScanQR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fmt.Println([]byte(res))
-	w.Write([]byte(res))
-
+	_, erro := w.Write([]byte(res))
+	if erro != nil {
+		msg := fmt.Sprintf("Internal server error: %v", erro)
+		http.Error(w, msg, http.StatusInternalServerError)
+		return
+	}
 	//json.Unmarshal([]byte(res))
 
 	//utils.EncodeJSON200Body(w, []byte(res))
