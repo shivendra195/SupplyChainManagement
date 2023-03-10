@@ -332,18 +332,19 @@ func (dh *DBHelper) Dashboard() (models.FetchUserData, error) {
 
 func (dh *DBHelper) RecentUsers(limit int) ([]models.UserInfo, error) {
 	//language=sql
-	SQL := `select 	new_users.id, 
+	SQL := `SELECT 	new_users.id, 
 					new_users.name, 
 					new_users.email, 
 					ur.role, 
 					new_users.created_at
-                    from users new_users
-                             join user_roles ur on new_users.id = ur.user_id
-                    order by created_at desc
-                    limit $1`
+                    FROM users new_users
+                             JOIN user_roles ur ON new_users.id = ur.user_id
+                    WHERE  ur.role <> $2
+                    ORDER BY created_at DESC
+                    LIMIT $1`
 
 	UserInfo := make([]models.UserInfo, 0)
-	err := dh.DB.Select(&UserInfo, SQL, limit)
+	err := dh.DB.Select(&UserInfo, SQL, limit, models.SuperAdmin)
 	if err != nil {
 		logrus.Errorf("RecentUsers: error getting recent users list: %v", err)
 		return UserInfo, err
@@ -414,6 +415,7 @@ func (dh *DBHelper) UsersAll(userID, limit, offset int, role models.UserRoles) (
 			FROM users 
 			JOIN user_roles ur ON users.id = ur.user_id
 			WHERE users.id <> $1
+			  AND users.created_by = $1
 			AND ($2 OR ur.role = $3)
 			ORDER BY users.created_at DESC
 			LIMIT $4
@@ -427,19 +429,45 @@ func (dh *DBHelper) UsersAll(userID, limit, offset int, role models.UserRoles) (
 	return fetchAllUserData, nil
 }
 
-func (dh *DBHelper) CreateOrder(userID int, address string, order models.Order) (models.CreatedOrder, error) {
+func (dh *DBHelper) CreateOrder(order models.Order) (models.CreatedOrder, error) {
 	Args := []interface{}{
-		userID,
+		order.OrderedBy,
 		order.Quantity,
-		uuid.New(),
-		address,
+		order.ReferenceID,
+		order.ShippingAddress,
+		string(models.OpenOrderStatus),
 		time.Now().UTC(),
 		time.Now().UTC(),
 	}
 
 	//language=sql
 	SQL := `INSERT INTO orders 
-    		(ordered_by, quantity, reference_no, shipping_address, created_at, updated_at) 
+    		(ordered_by, quantity, reference_no, shipping_address, order_status, created_at, updated_at) 
+			VALUES ($1,$2,$3,$4,$5,$6) returning id`
+
+	var orderData models.CreatedOrder
+	err := dh.DB.Get(&orderData, SQL, Args...)
+	if err != nil {
+		logrus.Errorf("CreateOrder: error creating order : %v", err)
+		return orderData, err
+	}
+	return orderData, nil
+}
+
+func (dh *DBHelper) OrderQRData(order models.Order) (models.CreatedOrder, error) {
+	Args := []interface{}{
+		order.OrderedBy,
+		order.Quantity,
+		order.ReferenceID,
+		order.ShippingAddress,
+		string(models.OpenOrderStatus),
+		time.Now().UTC(),
+		time.Now().UTC(),
+	}
+
+	//language=sql
+	SQL := `INSERT INTO orders 
+    		(ordered_by, quantity, reference_no, shipping_address, order_status, created_at, updated_at) 
 			VALUES ($1,$2,$3,$4,$5,$6) returning id`
 
 	var orderData models.CreatedOrder
@@ -561,4 +589,45 @@ func (dh *DBHelper) GetCountryAndState() ([]models.CountryAndState, error) {
 		return countryAndState, err
 	}
 	return countryAndState, nil
+}
+
+func (dh *DBHelper) Scan(order models.Order, orderID models.CreatedOrder) (int, error) {
+	// language=sql
+	SQL := `INSERT INTO ordered_items (order_id, qr_id, data, scanned_at)
+			VALUES ($1,$2,$3,$4) RETURNING id`
+
+	args := []interface{}{
+		orderID.ID,
+		order.OrderedBy,
+		order.Payload,
+		time.Now().UTC(),
+	}
+
+	var orderedItemID models.OrderedItemID
+	err := dh.DB.Get(&orderedItemID, SQL, args...)
+	if err != nil {
+		logrus.Errorf("Scan: error while adding ordered items : %v\n", err)
+		return orderedItemID.ID, err
+	}
+	return orderedItemID.ID, nil
+}
+
+func (dh *DBHelper) IsOrderAlreadyExists(referenceID string) (isOrderExist bool, orderID models.CreatedOrder, err error) {
+	//	language=sql
+	SQL := `SELECT id
+			FROM orders
+			WHERE reference_no = $1
+			  AND archived_at IS NULL`
+
+	err = dh.DB.Get(&orderID, SQL, referenceID)
+	if err != nil && err != sql.ErrNoRows {
+		logrus.Errorf("IsOrderAlreadyExists: unable to get order information from the database %v", err)
+		return false, orderID, err
+	}
+
+	if err == sql.ErrNoRows {
+		return false, orderID, nil
+	}
+
+	return true, orderID, nil
 }

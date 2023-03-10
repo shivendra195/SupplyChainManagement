@@ -29,7 +29,7 @@ func (srv *Server) InjectRoutes() *chi.Mux {
 			public.Route("/order", func(order chi.Router) {
 				order.Use(srv.MiddlewareProvider.Middleware())
 				order.Post("/", srv.Order)
-				order.Post("/scan", srv.ScanQR)
+				order.Post("/scan", srv.scan)
 			})
 		})
 	})
