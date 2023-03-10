@@ -8,7 +8,6 @@ import (
 	"github.com/shivendra195/supplyChainManagement/providers/middlewareprovider"
 	"log"
 	"net/http"
-	"os"
 	"time"
 	// "example.com/supplyChainManagement/providers/dbhelperprovider"
 	//"example.com/supplyChainManagement/providers/dbprovider"
@@ -20,7 +19,11 @@ import (
 const (
 
 	// jdbc:postgresql://localhost:5432/scmdb
+
 	//defaultPSQLURL    = "postgresql://admin:root@localhost:5432/scmdb?sslmode=require"
+
+	defaultPSQLURL = "postgresql://admin:root@localhost:5432/scmdb?sslmode=require"
+
 	defaultPortNumber = "8000"
 )
 
@@ -51,9 +54,9 @@ func SrvInit() *Server {
 	//dbQuries  := newdbprovider.QueriesProviders(dbsqlc)
 
 	//PSQL connection
-	db := dbprovider.NewPSQLProvider(os.Getenv("PSQL_DB_URL"))
+	//db := dbprovider.NewPSQLProvider(os.Getenv("PSQL_DB_URL"))
 	//db := dbprovider.NewPSQLProvider(PSQL_DB_URL)
-	//db := dbprovider.NewPSQLProvider(defaultPSQLURL)
+	db := dbprovider.NewPSQLProvider(defaultPSQLURL)
 
 	// database helper functions
 	dbHelper := dbhelperprovider.NewDBHepler(db.DB())
