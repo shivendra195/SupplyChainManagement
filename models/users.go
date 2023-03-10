@@ -64,6 +64,7 @@ type FetchUserData struct {
 	ProfileImageURL string      `json:"profileImageURL" db:"url"`
 	State           string      `json:"state" db:"state"`
 	Country         string      `json:"country" db:"country"`
+	CreatedAt       time.Time   `json:"createdAt" db:"created_at"`
 }
 
 type ListUsers struct {
