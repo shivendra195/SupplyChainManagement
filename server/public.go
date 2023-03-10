@@ -309,7 +309,7 @@ func (srv *Server) createDashboard() (models.DashboardData, error) {
 	if err != nil {
 		logrus.Error("createDashboard: error getting recent user data", err)
 	}
-	dashboardData.RecentOrders, err = srv.DBHelper.RecentOrders(5)
+	dashboardData.RecentOrders, err = srv.DBHelper.RecentOrders(5, 0, false, models.OpenOrderStatus)
 	if err != nil {
 		logrus.Error("createDashboard: error getting recent order data", err)
 	}
@@ -481,8 +481,20 @@ func (srv *Server) scan(resp http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
 	utils.EncodeJSON200Body(resp, map[string]interface{}{
 		"orderId": orderID.ID,
 	})
+}
+
+func (srv *Server) FetchOrder(resp http.ResponseWriter, r *http.Request) {
+	orderStatus := models.OrderStatus(r.URL.Query().Get("orderStatus"))
+	limit, offset, err := utils.GetLimitOffsetFromRequest(r, models.DefaultLimit)
+	if err != nil {
+		logrus.Error("FetchOrder :error getting limit offset from request", err)
+	}
+	recentOrders, err := srv.DBHelper.RecentOrders(limit, offset, true, orderStatus)
+	if err != nil {
+		logrus.Error("createDashboard: error getting recent order data", err)
+	}
+	utils.EncodeJSON200Body(resp, recentOrders)
 }

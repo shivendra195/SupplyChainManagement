@@ -352,26 +352,28 @@ func (dh *DBHelper) RecentUsers(limit int) ([]models.UserInfo, error) {
 	return UserInfo, nil
 }
 
-func (dh *DBHelper) RecentOrders(limit int) ([]models.RecentOrders, error) {
+func (dh *DBHelper) RecentOrders(limit, offset int, isStatusCheck bool, orderStatus models.OrderStatus) ([]models.RecentOrders, error) {
 	//language=sql
-	SQL := `SELECT 	ur.id, 
-       				ur.name, 
-       				orders.id, 
-       				orders.quantity, 
+	SQL := `SELECT 	ur.id as user_id,
+       				ur.name,
+       				orders.id as order_id,
+       				orders.quantity,
        				orders.order_status,
        				orders.created_at
                     FROM orders
                              JOIN users ur ON orders.ordered_by = ur.id
+                    WHERE orders.archived_at IS NULL
+                    AND ($1 OR orders.order_status = $2)
                     ORDER BY created_at DESC
-                    LIMIT $1`
+                    LIMIT $3 OFFSET $4`
 
-	UserInfo := make([]models.RecentOrders, 0)
-	err := dh.DB.Get(&UserInfo, SQL, limit)
+	recentOrders := make([]models.RecentOrders, 0)
+	err := dh.DB.Get(&recentOrders, SQL, !isStatusCheck, orderStatus, limit, offset)
 	if err != nil {
 		logrus.Errorf("RecentOrders: error getting recent order list: %v", err)
-		return UserInfo, err
+		return recentOrders, err
 	}
-	return UserInfo, nil
+	return recentOrders, nil
 }
 
 func (dh *DBHelper) OrderSummary() (models.OrderSummary, error) {
