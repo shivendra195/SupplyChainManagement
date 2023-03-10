@@ -332,14 +332,18 @@ func (dh *DBHelper) Dashboard() (models.FetchUserData, error) {
 
 func (dh *DBHelper) RecentUsers(limit int) ([]models.UserInfo, error) {
 	//language=sql
-	SQL := `select new_users.id, new_users.name, new_users.email, ur.role, new_users.created_at
+	SQL := `select 	new_users.id, 
+					new_users.name, 
+					new_users.email, 
+					ur.role, 
+					new_users.created_at
                     from users new_users
                              join user_roles ur on new_users.id = ur.user_id
                     order by created_at desc
                     limit $1`
 
 	UserInfo := make([]models.UserInfo, 0)
-	err := dh.DB.Get(&UserInfo, SQL, limit)
+	err := dh.DB.Select(&UserInfo, SQL, limit)
 	if err != nil {
 		logrus.Errorf("RecentUsers: error getting recent users list: %v", err)
 		return UserInfo, err
