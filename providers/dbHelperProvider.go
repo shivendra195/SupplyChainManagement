@@ -20,8 +20,10 @@ type DBHelperProvider interface {
 	RecentUsers(limit int) ([]models.UserInfo, error)
 	RecentOrders(limit int) ([]models.RecentOrders, error)
 	OrderSummary() (models.OrderSummary, error)
-	CreateOrder(userID int, address string, order models.Order) (models.CreatedOrder, error)
+	CreateOrder(order models.Order) (models.CreatedOrder, error)
 	GetUserInfoByEmail(email string) (models.GetUserDataByEmail, error)
 	EditProfile(userID int, editProfileRequest models.EditProfile) error
 	GetCountryAndState() ([]models.CountryAndState, error)
+	IsOrderAlreadyExists(referenceID string) (isOrderExist bool, orderID models.CreatedOrder, err error)
+	Scan(order models.Order, orderID models.CreatedOrder) (int, error)
 }

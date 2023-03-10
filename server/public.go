@@ -335,18 +335,39 @@ func (srv *Server) Users(resp http.ResponseWriter, r *http.Request) {
 }
 
 func (srv *Server) Order(resp http.ResponseWriter, r *http.Request) {
-	uc := srv.MiddlewareProvider.UserFromContext(r.Context())
 	var order models.Order
+	var orderID models.CreatedOrder
+	var isOrderExists bool
+	orderedItemID := 0
+
 	err := json.NewDecoder(r.Body).Decode(&order)
 	if err != nil {
 		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "error creating order", "Error parsing request")
 		return
 	}
-	fetchedAuthor, err := srv.DBHelper.CreateOrder(uc.UserID, uc.Address, order)
+	isOrderExists, orderID, err = srv.DBHelper.IsOrderAlreadyExists(order.ReferenceID)
+	if err != nil {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "error checking order status", "error checking order status")
+		return
+	}
+	if !isOrderExists {
+		orderID, err = srv.DBHelper.CreateOrder(order)
+		if err != nil {
+			logrus.Error("error creating user in database", err)
+			return
+		}
+	}
+
+	orderedItemID, err = srv.DBHelper.Scan(order, orderID)
 	if err != nil {
 		logrus.Error("error creating user in database", err)
+		return
 	}
-	utils.EncodeJSON200Body(resp, fetchedAuthor)
+
+	utils.EncodeJSON200Body(resp, map[string]interface{}{
+		"orderId":       orderID.ID,
+		"orderedItemId": orderedItemID,
+	})
 }
 
 func (srv *Server) editProfile(resp http.ResponseWriter, r *http.Request) {
@@ -437,4 +458,31 @@ func (srv *Server) getCountryAndState(resp http.ResponseWriter, r *http.Request)
 		logrus.Error("getCountryAndState: error getting Country and State ", err)
 	}
 	utils.EncodeJSON200Body(resp, countryAndState)
+}
+
+func (srv *Server) scan(resp http.ResponseWriter, r *http.Request) {
+	var order models.Order
+	var orderID models.CreatedOrder
+	var isOrderExists bool
+	err := json.NewDecoder(r.Body).Decode(&order)
+	if err != nil {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "error creating order", "Error parsing request")
+		return
+	}
+	isOrderExists, orderID, err = srv.DBHelper.IsOrderAlreadyExists(order.ReferenceID)
+	if err != nil {
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "error checking order status", "error checking order status")
+		return
+	}
+	if !isOrderExists {
+		orderID, err = srv.DBHelper.CreateOrder(order)
+		if err != nil {
+			logrus.Error("error creating user in database", err)
+			return
+		}
+	}
+
+	utils.EncodeJSON200Body(resp, map[string]interface{}{
+		"orderId": orderID.ID,
+	})
 }
