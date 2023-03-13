@@ -3,6 +3,7 @@ package providers
 import (
 	"context"
 	"database/sql"
+	"github.com/go-chi/chi"
 	"github.com/jmoiron/sqlx"
 	"github.com/shivendra195/supplyChainManagement/models"
 	"net/http"
@@ -39,4 +40,5 @@ type AuthProvider interface {
 type MiddlewareProvider interface {
 	Middleware() func(next http.Handler) http.Handler
 	UserFromContext(ctx context.Context) models.UserContextData
+	Default() chi.Middlewares
 }

@@ -18,7 +18,7 @@ type DBHelperProvider interface {
 	EndSession(sessionId string) error
 	Dashboard() (models.FetchUserData, error)
 	RecentUsers(limit int) ([]models.UserInfo, error)
-	RecentOrders(limit int) ([]models.RecentOrders, error)
+	RecentOrders(limit, offset int, isStatusCheck bool, orderStatus models.OrderStatus) ([]models.RecentOrders, error)
 	OrderSummary() (models.OrderSummary, error)
 	CreateOrder(order models.Order) (models.CreatedOrder, error)
 	GetUserInfoByEmail(email string) (models.GetUserDataByEmail, error)

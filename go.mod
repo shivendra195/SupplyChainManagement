@@ -22,6 +22,7 @@ require (
 
 require (
 	github.com/friendsofgo/errors v0.9.2 // indirect
+	github.com/go-chi/cors v1.2.1 // indirect
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
