@@ -382,6 +382,12 @@ func (srv *Server) editProfile(resp http.ResponseWriter, r *http.Request) {
 		scmerrors.RespondClientErr(resp, errors.New("name cannot be empty"), http.StatusBadRequest, "Name cannot be empty", "Name cannot be empty")
 		return
 	}
+
+	if uc.Role == string(models.Dealer) || uc.Role == string(models.Retailer) && uc.Email != editProfileRequest.Email {
+		scmerrors.RespondClientErr(resp, errors.New("dealers and retailers are not authorized to update their emails"), http.StatusBadRequest, "cannot update email", "dealers and retailers are not authorized to update their emails")
+		return
+	}
+
 	// checking if the user is already exist
 	isUserExist, _, err := srv.DBHelper.IsUserAlreadyExists(editProfileRequest.Email)
 	if err != nil {
