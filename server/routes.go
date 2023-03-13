@@ -10,6 +10,7 @@ func (srv *Server) InjectRoutes() *chi.Mux {
 
 	r.Get(`/health`, srv.HealthCheck)
 	r.Route("/api", func(api chi.Router) {
+		api.Use(srv.MiddlewareProvider.Default()...)
 		api.Route("/public", func(public chi.Router) {
 			public.Post("/login", srv.loginWithEmailPassword)
 			public.Get("/country-state", srv.getCountryAndState)
@@ -30,6 +31,7 @@ func (srv *Server) InjectRoutes() *chi.Mux {
 				order.Use(srv.MiddlewareProvider.Middleware())
 				order.Post("/", srv.Order)
 				order.Get("/", srv.FetchOrder)
+				//order.Get("/details", srv.orderDetails)
 				order.Post("/scan", srv.scan)
 			})
 		})

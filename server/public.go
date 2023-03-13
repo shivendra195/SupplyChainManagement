@@ -178,7 +178,7 @@ func (srv *Server) loginWithEmailPassword(resp http.ResponseWriter, req *http.Re
 	}
 	UserDataByEmail, err := srv.DBHelper.GetUserInfoByEmail(authLoginRequest.Email)
 	if err != nil {
-		scmerrors.RespondClientErr(resp, errors.New("error getting user info"), http.StatusBadRequest, "error getting user info", "error getting user info")
+		scmerrors.RespondClientErr(resp, err, http.StatusBadRequest, "error getting user info", "error getting user info")
 		return
 	}
 
@@ -498,3 +498,13 @@ func (srv *Server) FetchOrder(resp http.ResponseWriter, r *http.Request) {
 	}
 	utils.EncodeJSON200Body(resp, recentOrders)
 }
+
+//func (srv *Server) orderDetails(resp http.ResponseWriter, r *http.Request) {
+//	orderStatus := models.OrderStatus(r.URL.Query().Get("orderStatus"))
+//
+//	recentOrders, err := srv.DBHelper.RecentOrders(limit, offset, true, orderStatus)
+//	if err != nil {
+//		logrus.Error("createDashboard: error getting recent order data", err)
+//	}
+//	utils.EncodeJSON200Body(resp, recentOrders)
+//}

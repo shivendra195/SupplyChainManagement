@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/go-chi/chi"
+	"github.com/go-chi/cors"
 	"github.com/golang-jwt/jwt"
 	"github.com/shivendra195/supplyChainManagement/models"
 	"github.com/shivendra195/supplyChainManagement/providers"
@@ -30,6 +32,17 @@ const (
 
 type middleware struct {
 	DBHelper providers.DBHelperProvider
+}
+
+func corsOptions() *cors.Cors {
+	return cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+		AllowedHeaders:   []string{"Authorization", "Content-Type", "Content-Length", "Host", "User-Agent", "Accept", "Accept-Encoding", "Connection"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           maxAge, // Maximum value not ignored by any of major browsers
+	})
 }
 
 func NewMiddleware(dbhelper providers.DBHelperProvider) providers.MiddlewareProvider {
@@ -111,6 +124,10 @@ func (AM *middleware) Middleware() func(next http.Handler) http.Handler {
 
 func (AM *middleware) UserFromContext(ctx context.Context) models.UserContextData {
 	return ctx.Value(models.UserContext).(models.UserContextData)
+}
+
+func (AM *middleware) Default() chi.Middlewares {
+	return chi.Chain(corsOptions().Handler)
 }
 
 func GetClaimsFromToken(tokenString string) (jwt.MapClaims, error) {
